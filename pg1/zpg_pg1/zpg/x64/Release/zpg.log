@@ -1,0 +1,20 @@
+﻿  pg1.cpp
+pg1.cpp(139): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
+pg1.cpp(200): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
+pg1.cpp(263): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
+pg1.cpp(333): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
+pg1.cpp(686): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
+pg1.cpp(752): warning C4005: 'SQR': macro redefinition
+  c:\users\jan\onedrive\vsb\fei\pg1\pg1\zpg_pg1\zpg\stdafx.h(40): note: see previous definition of 'SQR'
+pg1.cpp(759): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
+pg1.cpp(768): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
+pg1.cpp(795): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+pg1.cpp(861): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
+pg1.cpp(879): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
+pg1.cpp(951): warning C4244: 'argument': conversion from 'int' to 'const float', possible loss of data
+  Generating code
+  26 of 914 functions ( 2.8%) were compiled, the rest were copied from previous compilation.
+    1 functions were new in current compilation
+    4 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  zpg.vcxproj -> C:\Users\Jan\OneDrive\VSB\FEI\PG1\pg1\zpg_pg1\x64\Release\pg1.exe

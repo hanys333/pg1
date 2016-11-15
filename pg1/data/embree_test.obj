@@ -1,0 +1,65 @@
+mtllib test.mtl
+
+#
+# object Triangle000
+#
+
+v  0.0 0.0 0.0
+v  0.0 2.0 0.0
+v  0.0 0.0 1.0
+
+vn 1.0 0.0 0.0
+vn 1.0 0.0 0.0
+vn 1.0 0.0 0.0
+
+vt 0.5 0.5 0.0
+vt 1.0 0.5 0.0
+vt 0.5 0.0 0.0
+
+#
+# object Triangle001
+#
+
+v  2.0 0.0 0.0
+v  2.0 1.0 0.0
+v  2.0 0.0 1.0
+
+vn 1.0 0.0 0.0
+vn 1.0 0.0 0.0
+vn 1.0 0.0 0.0
+
+vt 0.0 1.0 0.0
+vt 1.0 1.0 0.0
+vt 0.0 0.0 0.0
+
+
+#
+# object Triangle002
+#
+
+v  3.0 0.0 0.0
+v  3.0 1.0 0.0
+v  3.0 0.0 1.0
+
+vn 1.0 -1.0 -1.0
+vn 1.0 1.0 -1.0
+vn 1.0 -1.0 1.0
+
+vt 0.0 1.0 0.0
+vt 1.0 1.0 0.0
+vt 0.0 0.0 0.0
+
+
+g Triangle000
+usemtl MarbleBox
+f 1/1/1 2/2/2 3/3/3
+
+
+g Triangle001
+usemtl MarbleBox
+f 4/4/4 5/5/5 6/6/6
+
+
+g Triangle002
+usemtl MarbleBox
+f 7/7/7 8/8/8 9/9/9
