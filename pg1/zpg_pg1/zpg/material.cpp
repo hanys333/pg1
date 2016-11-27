@@ -17,7 +17,7 @@ Material::Material()
 	reflectivity = static_cast<float>( 0.99 );
 	shininess = 1;
 
-	ior = 1.5f;
+	ior = 1;
 
 
 	memset( textures_, 0, sizeof( *textures_ ) * NO_TEXTURES );
@@ -62,7 +62,9 @@ void Material::set_name( const char * name )
 
 	if (name_ == "green_plastic_transparent")
 	{
-		ior = 1.46f;
+		ior = 1.5f;
+		diffuse = Vector3(0.749019608f, 0.941176471f, 0.2f);
+		//diffuse = Vector3(100.0f / 255.0f, 204.0f / 255.0f, 0);
 	}
 }
 

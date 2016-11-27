@@ -1227,7 +1227,7 @@ Vector3 PhongShader(Vector3 normal, Vector3 lightPosition, Vector3 point, Vector
 
 
 	Vector3 retVector = Vector3(0.1f, 0.1f, 0.1f);
-	bool inShadow = isInShadow(point, lightPosition, scene);
+	
 	Vector3 diffuseColor = material->diffuse;
 
 
@@ -1243,6 +1243,9 @@ Vector3 PhongShader(Vector3 normal, Vector3 lightPosition, Vector3 point, Vector
 
 
 	Vector3 color = L.DotProduct(normal) * diffuseColor + material->specular * std::pow(H.DotProduct(normal), 4);
+
+
+	bool inShadow = isInShadow(point, lightPosition, scene);
 
 	if (inShadow && wantShadow)
 	{
@@ -1311,9 +1314,17 @@ Vector3 phongRecursion(int depth, Ray rtc_ray, Vector3 lightPosition, Vector3 ey
 
 		if (depth == 5)
 		{
-			return PhongShader(n, lightPosition, p, eyePosition - p, mtl->specular, scene, mtl, tuv, false);
-			//Color4 col = cubeMap.GetTexel(Vector3(rtc_ray.dir));
-			//return Vector3(col.r, col.g, col.b);
+			//return Vector3(1,0,0);
+
+			/*if (mtl->ior == 1)
+			{
+				Color4 col = cubeMap.GetTexel(Vector3(rtc_ray.dir));
+				return Vector3(col.r, col.g, col.b);
+			}
+			else
+			{*/
+				return PhongShader(n, lightPosition, p, eyePosition - p, mtl->specular, scene, mtl, tuv, false);
+			//}
 		}
 
 
@@ -1322,6 +1333,9 @@ Vector3 phongRecursion(int depth, Ray rtc_ray, Vector3 lightPosition, Vector3 ey
 
 			Vector3 color = PhongShader(n, lightPosition, p, eyePosition - p, mtl->specular, scene, mtl, tuv, true);
 			Vector3 rayDir = -Vector3(rtc_ray.dir);
+
+			//n = n.DotProduct(rf) >= 0 ? n : -n;
+
 			rayDir.Normalize();
 			Vector3 reflectedDir = 2 * (n.DotProduct(rayDir)) * n - rayDir;
 
@@ -1335,13 +1349,13 @@ Vector3 phongRecursion(int depth, Ray rtc_ray, Vector3 lightPosition, Vector3 ey
 
 
 
-			if (!isInShadow(p, lightPosition, scene))
+			//if (!isInShadow(p, lightPosition, scene))
 			{
 				Vector3 reflected_rec = phongRecursion(depth + 1, reflected, lightPosition, p, scene, surfaces, cubeMap);
 
 			
 
-				color += 0.1f * reflected_rec;// + T * retracted_rec;
+				color += 0.3f * reflected_rec;// + T * retracted_rec;
 			}
 
 			////////////retVector = retVector + isInShadowVector;
@@ -1354,12 +1368,15 @@ Vector3 phongRecursion(int depth, Ray rtc_ray, Vector3 lightPosition, Vector3 ey
 		}
 		else // toto je sklo
 		{
-			Vector3 rf = eyePosition - p;
-
-
+			Vector3 rd = Vector3(rtc_ray.dir);
+			rd.Normalize();
+			Vector3 rf = -rd;// eyePosition - p;
+			rf.Normalize();
+			//rf = -rf;
 
 			n = n.DotProduct(rf) >= 0 ? n : -n;
 
+			n.Normalize();
 
 
 			//n = -n;
@@ -1384,11 +1401,12 @@ Vector3 phongRecursion(int depth, Ray rtc_ray, Vector3 lightPosition, Vector3 ey
 
 			//std::cout << n1 << "  " << n2 << std::endl;
 
-			float cos_O2 = n.DotProduct(rf);
-			float cos_O1 = sqrt(1 - SQR(n1 / n2) * (1 - SQR(cos_O2)));
+			float cos_O2 = (-n).DotProduct(rd);
+			float cos_O1_undersqrt = 1 - SQR(n1 / n2) * (1 - SQR(cos_O2));
+			float cos_O1 = cos_O1_undersqrt < 0.0f ? 1.0f : sqrt(cos_O1_undersqrt);
 
 
-			Vector3 rr = -(n1 / n2) * rf - ((n1 / n2) * cos_O2 + cos_O1) * n;
+			Vector3 rr = -(n1 / n2) * rd - ((n1 / n2) * cos_O2 + cos_O1) * n;
 			rr.Normalize();
 			Vector3 l = rr - (2 * (n.DotProduct(rr))) * n;
 			//l.Normalize();
@@ -1411,62 +1429,37 @@ Vector3 phongRecursion(int depth, Ray rtc_ray, Vector3 lightPosition, Vector3 ey
 			////Vector3 color = phongRecursion(depth + 1, refracted, lightPosition, p, scene, surfaces, cubeMap);
 			//PhongShader(n, lightPosition, p, -lr, mtl->specular, scene, mtl, tuv, false);// phongRecursion(depth + 1, refracted, lightPosition, p, scene, surfaces, cubeMap);
 
+
+			Vector3 reflectedDir = 2 * (n.DotProduct(rf)) * n - rf;
+
+			Ray reflected(p, reflectedDir, 0.01f);
+			reflected.set_ior(n1);
+
+			
+
+			float R = 1;
+			float T = 0;
+			float n1cosi = n1 * lr.DotProduct(-n);
+			float n1cost = n1 * (rf).DotProduct(n);
+			float n2cosi = n2 * lr.DotProduct(-n);
+			float n2cost = n2 * (rf).DotProduct(n);
+			float Rs = pow((n1cosi - n2cost) / (n1cosi + n2cost), 2);
+			float Rp = pow((n1cost - n2cosi) / (n1cost + n2cosi), 2);
+			R = (Rs + Rp) * 0.5f;
+			T = 1 - R;
+			
+
 			return //PhongShader(n, lightPosition, p, eyePosition - p, mtl->specular, scene, mtl, tuv, false)*0.1f+ 
-				phongRecursion(depth + 1, refracted, lightPosition, p, scene, surfaces, cubeMap) * mtl->diffuse;
-
-			//dle wiki
-			//float r = rtc_ray.ior / mtl->ior;
-
-			////float r = mtl->ior / rtc_ray.ior;
-			////Vector3 l =   eyePosition - p;
-			////float c = (-n).DotProduct(l);
+				phongRecursion(depth + 1, refracted, lightPosition, p, scene, surfaces, cubeMap) * mtl->diffuse * T
+				+ phongRecursion(depth + 1, reflected, lightPosition, p, scene, surfaces, cubeMap) * R;// *mtl->specular;
 
 
-			////
 
 
-			////Vector3 v_refract = r * l + (r * c - (sqrt(1 - SQR(r) * (1 - SQR(c))))) * n;
-			////Ray refracted(p, v_refract, 0.1f);
-			////refracted.set_ior(mtl->ior);
-			////return //PhongShader(n, lightPosition, p, eyePosition - p, mtl->specular, scene, mtl, tuv, false)*0.1f+
-			////	//0.8f*
-			////	phongRecursion(depth + 1, refracted, lightPosition, p, scene, surfaces, cubeMap);
+			//return //PhongShader(n, lightPosition, p, eyePosition - p, mtl->specular, scene, mtl, tuv, false)*0.1f+ 
+			//	phongRecursion(depth + 1, refracted, lightPosition, p, scene, surfaces, cubeMap) * mtl->diffuse;
 
-			////// Ray(p, p - eyePosition, 0.1f) 
-
-			//return PhongShader(n, lightPosition, p, eyePosition - p, mtl->specular, scene, mtl, tuv, false);// phongRecursion(depth + 1, refracted, lightPosition, p, scene, surfaces, cubeMap);
-
-			//return color;
-
-			//return Vector3(1, 0, 0);
-			//Vector3 retracted_rec = Vector3(0, 0, 0);
-			//float R = 1;
-			//float T = 0;
-			//if (mtl->ior != -1)// {
-			////if(mtl->ior > 0)
-			//{
-			//	Vector3 l = eyePosition-p ;
-			//	float c = abs(l.DotProduct(-n));
-			//	float r = (mtl->ior / rtc_ray.ior);
-			//	float cos_O2 = sqrt(1 - r*r * (1 - c*c));
-			//	//Vector3 retractDir = r * l + (r * c - sqrt(1 - r*r * (1 - c*c))) * normal;
-			//	Vector3 retractDir = r * l + (c - r * cos_O2) * n;
-
-			//	Ray retracted (p , retractDir, 0.5f);
-
-			//	retracted_rec = phongRecursion(depth + 1, retracted, lightPosition, p, scene, surfaces, cubeMap);
-			//		// TracePhong(Ray(GetPoint(ray, false), retractDir), deep + 1);
-
-			//		float n1cosi = abs(rtc_ray.ior * c);
-			//	float n1cost = abs(rtc_ray.ior * retractDir.DotProduct(n));
-			//	float n2cosi = abs(mtl->ior * c);
-			//	float n2cost = abs(mtl->ior * retractDir.DotProduct(n));
-
-			//	float Rs = pow((n1cosi - n2cost) / (n1cosi + n2cost), 2);
-			//	float Rp = pow((n1cost - n2cosi) / (n1cost + n2cosi), 2);
-			//	R = (Rs + Rp) * 0.5f;
-			//	T = 1 - R;
-			//}
+			
 		}
 
 	}
@@ -1708,16 +1701,16 @@ int main(int argc, char * argv[])
 	std::vector<Material *> materials;
 
 	// načtení geometrie
-	//if (LoadOBJ("../../data/6887_allied_avenger.obj", Vector3(0.5f, 0.5f, 0.5f), surfaces, materials) < 0)
-	//{
-	//	return -1;
-	//}
-
-
-	if (LoadOBJ("../../data/geosphere.obj", Vector3(0.5f, 0.5f, 0.5f), surfaces, materials) < 0)
+	if (LoadOBJ("../../data/6887_allied_avenger.obj", Vector3(0.5f, 0.5f, 0.5f), surfaces, materials) < 0)
 	{
 		return -1;
 	}
+
+
+	//if (LoadOBJ("../../data/geosphere.obj", Vector3(0.5f, 0.5f, 0.5f), surfaces, materials) < 0)
+	//{
+	//	return -1;
+	//}
 
 	// vytvoření scény v rámci Embree
 	RTCScene scene = rtcDeviceNewScene(device, RTC_SCENE_STATIC | RTC_SCENE_HIGH_QUALITY, RTC_INTERSECT1/* | RTC_INTERPOLATE*/);
@@ -1835,8 +1828,8 @@ int main(int argc, char * argv[])
 	Camera cameraSPhere = Camera(640, 480, Vector3(3.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
 
 
-	renderPhong(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
-	//renderPhong(scene, surfaces, cameraSPaceShip, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+	//renderPhong(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+	renderPhong(scene, surfaces, cameraSPaceShip, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
 	//TODOH
 	/////////ENDSHADERS
 
