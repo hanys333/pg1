@@ -1226,7 +1226,7 @@ Vector3 PhongShader(Vector3 normal, Vector3 lightPosition, Vector3 point, Vector
 	H.Normalize();
 
 
-	Vector3 retVector = Vector3(0.1f, 0.1f, 0.1f);
+	Vector3 retVector = Vector3(0.07f, 0.07f, 0.07f);  // puvodne 0.1f
 	
 	Vector3 diffuseColor = material->diffuse;
 
@@ -1242,7 +1242,7 @@ Vector3 PhongShader(Vector3 normal, Vector3 lightPosition, Vector3 point, Vector
 
 
 
-	Vector3 color = L.DotProduct(normal) * diffuseColor + material->specular * std::pow(H.DotProduct(normal), 4);
+	Vector3 color = L.DotProduct(normal) * diffuseColor + material->specular * std::pow(H.DotProduct(normal), 89);
 
 
 	bool inShadow = isInShadow(point, lightPosition, scene);
@@ -1312,7 +1312,7 @@ Vector3 phongRecursion(int depth, Ray rtc_ray, Vector3 lightPosition, Vector3 ey
 
 		Material * mtl = surfa->get_material();
 
-		if (depth == 5)
+		if (depth == 10) // puvodne 10
 		{
 			//return Vector3(1,0,0);
 
@@ -1331,7 +1331,7 @@ Vector3 phongRecursion(int depth, Ray rtc_ray, Vector3 lightPosition, Vector3 ey
 		if (mtl->ior == 1)
 		{
 
-			Vector3 color = PhongShader(n, lightPosition, p, eyePosition - p, mtl->specular, scene, mtl, tuv, true);
+			Vector3 color = PhongShader(n, lightPosition, p, eyePosition - p, mtl->specular, scene, mtl, tuv, false);
 			Vector3 rayDir = -Vector3(rtc_ray.dir);
 
 			//n = n.DotProduct(rf) >= 0 ? n : -n;
@@ -1340,7 +1340,7 @@ Vector3 phongRecursion(int depth, Ray rtc_ray, Vector3 lightPosition, Vector3 ey
 			Vector3 reflectedDir = 2 * (n.DotProduct(rayDir)) * n - rayDir;
 
 			Ray reflected(p, reflectedDir, 0.01f);
-
+			reflected.set_ior(rtc_ray.ior);
 			////////////Vector3 retVector = Vector3(0.1f, 0.1f, 0.1f);
 
 			////////////Vector3 isInShadowVector = isInShadow(point, lightPosition, scene, surfaces) ? Vector3(0.5, 0.5, 0.5) * cos(L.DotProduct(normal)) + specularColor * cos(H.DotProduct(normal)) : Vector3(1, 1, 1);
@@ -1355,7 +1355,7 @@ Vector3 phongRecursion(int depth, Ray rtc_ray, Vector3 lightPosition, Vector3 ey
 
 			
 
-				color += 0.3f * reflected_rec;// + T * retracted_rec;
+				color += 0.45f * reflected_rec;// + T * retracted_rec; //// puvodne 0.3f
 			}
 
 			////////////retVector = retVector + isInShadowVector;
@@ -1451,7 +1451,7 @@ Vector3 phongRecursion(int depth, Ray rtc_ray, Vector3 lightPosition, Vector3 ey
 
 			return //PhongShader(n, lightPosition, p, eyePosition - p, mtl->specular, scene, mtl, tuv, false)*0.1f+ 
 				phongRecursion(depth + 1, refracted, lightPosition, p, scene, surfaces, cubeMap) * mtl->diffuse * T
-				+ phongRecursion(depth + 1, reflected, lightPosition, p, scene, surfaces, cubeMap) * R;// *mtl->specular;
+				+ phongRecursion(depth + 1, reflected, lightPosition, p, scene, surfaces, cubeMap) *  mtl->diffuse *R;// *mtl->specular;
 
 
 
@@ -1817,6 +1817,8 @@ int main(int argc, char * argv[])
 	//cv::Mat src_8uf3_spaceship(480, 640, CV_32FC3);
 
 	CubeMap cubeMap = CubeMap::CubeMap("../../data/tenerife");
+	//CubeMap cubeMap = CubeMap::CubeMap("../../data/yokohama");
+
 
 	//////Camera cameraBackground = Camera(640, 480, Vector3(0.0f, 0.0f, 0.0f),
 	//////	Vector3(1,0,0), DEG2RAD(120.0f));
