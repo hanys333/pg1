@@ -455,11 +455,16 @@ int renderBackground(RTCScene & scene, std::vector<Surface *> & surfaces, Camera
 
 #pragma endregion
 
+Vector3 reflect(Vector3 normal, Vector3 viewVec)
+{
+	return 2 * (normal.DotProduct(viewVec)) * normal - viewVec;
+}
+
 #pragma region renderovacirovnice 
+
 
 double fRand(double fMin, double fMax)
 {
-
 	double f = (double)rand() / RAND_MAX;
 	return fMin + f * (fMax - fMin);
 }
@@ -477,36 +482,44 @@ double fRand(double fMin, double fMax)
 
 double rr_Fr(Vector3 omega_1, Vector3 omega_2)
 {
-	return 1.0;
-	//return 0.5 / M_PI;
+	//return 1.0;
+	return 0.5 / M_PI;
+
+	//reflect()
 }
 
 //Udelat     podle kompendia
 // normal -> omega_i
 Vector3 rr_Omega_i(Vector3 normal)
 {
-	bool notInNormalHemishpere = true;
-	Vector3 retval = Vector3(0, 0, 0);
-
-	double r1 = fRand(0.0, 1.0);
-	double r2 = fRand(-1.0, 1.0);
-
-	double fi = 2 * M_PI * r1;
-	double tau = acos(r2);
 
 
-	retval.x = cos(2 * M_PI*r1) * sqrt(1 - SQR(r2));
-	retval.y = cos(2 * M_PI*r1) * sqrt(1 - SQR(r2));
-	retval.z = r2;
+	//double r1 = Random(0, 1);
+	//double r2 = Random(0, 1);
+	//double phi = 2 * M_PI * r1;
+
+	//float sqrt_1r = std::sqrt(1 - r2 * r2);
+	//Vector3 omega = Vector3(cos(phi) * sqrt_1r, sin(phi) * sqrt_1r, r2);
+	//omega.Normalize();
+	//return (omega.DotProduct(normal) < 0) ? -omega : omega;
+
+	double r1 = Random(0, 1);
+	double r2 = Random(0, 1);
+
+	float x = cos(2 * M_PI * r1) * sqrt(1 - r2);
+	float y = sin(2 * M_PI * r1) * sqrt(1 - r2);
+	float z = sqrt(r2);
+
+	//double phi = 2 * M_PI * r1;
+
+	//float sqrt_1r = std::sqrt(1 - r2 * r2);
+	//Vector3 omega = Vector3(cos(phi) * sqrt_1r, sin(phi) * sqrt_1r, r2);
+	//omega.Normalize();
+	Vector3 omega = Vector3(x, y, z);
+	return (omega.DotProduct(normal) < 0) ? -omega : omega;
 
 
-	if (normal.DotProduct(retval) < 0)
-	{
-		retval = -retval;
-	}
 
-	retval.Normalize();
-	return retval;
 }
 
 //Pro nas experiment
@@ -518,37 +531,29 @@ double rr_Li(Vector3 omega_i)
 }
 
 
-Vector3 renderingEquation(Vector3 P, Vector3 direction, RTCScene & scene, std::vector<Surface *> & surfaces, int depth, CubeMap cubeMap)
+Vector3 renderingEquation(Vector3 P, Vector3 direction, RTCScene & scene, std::vector<Surface *> & surfaces, int depth, CubeMap cubeMap, float R)
 {
 	Ray ray = Ray(P, direction);
-	ray.tnear = .1f;
-	rtcOccluded(scene, ray);
+	ray.tnear = .1f;                                                                //TNEAR
+	rtcOccluded(scene, ray);    // Pro zrychleni
+								//  rtcIntersect(scene, ray);
 
 	Vector3 colorFromThisRay;
 	if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
 	{
 		ray = Ray(P, direction);
-		ray.tnear = .1f;
+		ray.tnear = .1f;                                                                //TNEAR
 		rtcIntersect(scene, ray);
 
-
+		Vector3 material = Vector3(0.5f, 0.5f, 0.5f);           //TODO: MATERIAL surface.getmaterial!!
 		Surface * surface = surfaces[ray.geomID];
-
-		Vector3 material = surface->get_material()->diffuse;//Vector3(0.5f, 0.5f, 0.5f);           //TODOH - material surface.getmaterial!!
-
 		Triangle & triangle = surface->get_triangle(ray.primID);
 
 		// získání souřadnic průsečíku, normál, texturovacích souřadnic atd.
 		const Vector3 p = ray.eval(ray.tfar);
 		Vector3 geometry_normal = -Vector3(ray.Ng); // Ng je nenormalizovaná normála zasaženého trojúhelníka vypočtená nesouhlasně s pravidlem pravé ruky o závitu
 		geometry_normal.Normalize(); // normála zasaženého trojúhelníka vypočtená souhlasně s pravidlem pravé ruky o závitu
-		Vector3 normal = triangle.normal(ray.u, ray.v);
-
-		if (normal.DotProduct(direction) < 0)
-		{
-			normal = -normal;
-		}
-
+		const Vector3 normal = triangle.normal(ray.u, ray.v);
 		const Vector2 texture_coord = triangle.texture_coord(ray.u, ray.v);
 
 
@@ -563,22 +568,39 @@ Vector3 renderingEquation(Vector3 P, Vector3 direction, RTCScene & scene, std::v
 			Vector3 omega0 = -direction;
 			Vector3 norm = normal;
 
+			if (norm.DotProduct(omega0) < 0)
+			{
+				norm = -norm;
+			}
+
+
 			Vector3 Le = Vector3(0.0, 0.0, 0.0);    //Svetlo emtiovane z bodu p
 
 
 
-			int N = 3;                              //Pocet paprsku pro integrovani Monte-Carlo
+			int N = 1;                              //Pocet paprsku pro integrovani Monte-Christo
 			Vector3 Suma = Vector3(0.0, 0.0, 0.0);
 			for (int i = 0; i < N; i++)
 			{
+				
+
 				Vector3 omegai = rr_Omega_i(norm);
-				Vector3 Li = renderingEquation(p, omegai, scene, surfaces, depth - 1, cubeMap);
+
+				Vector3 Li = renderingEquation(p, omegai, scene, surfaces, depth - 1, cubeMap, R);
+
+				Vector3 reflection = reflect(normal, omega0);
+
+				Vector3 Li_reflect = renderingEquation(p, reflection, scene, surfaces, depth - 1, cubeMap, R);
+
 				double Fr = rr_Fr(omega0, omegai);
-				double pdf = 1;         //Uniformni rozdeleni pdf
-				Suma = Suma + (Li * Fr * (omegai.DotProduct(norm))) / pdf;
+				double pdf = omegai.DotProduct(normal) /(2* M_PI);// 1 / (2 * M_PI);           //Uniformni rozdeleni pdf?
+				Suma += ((Li * Fr * (omegai.DotProduct(norm))) / pdf) * R
+					+
+					(Li_reflect * (1 - R));
+				//Suma = Suma + (Li * Fr * 1) / (pdf*2.0);
 			}
 
-			colorFromThisRay = Le + 1 / N * (Suma);
+			colorFromThisRay = (Le + (1 / N) * (Suma)) * material_DP;
 			//          colorFromThisRay = colorFromThisRay * material_DP;
 
 		}
@@ -590,54 +612,61 @@ Vector3 renderingEquation(Vector3 P, Vector3 direction, RTCScene & scene, std::v
 	else
 	{
 		//Cubemap (Vraci pouze Le)
-		Color4 cubeMapColor = cubeMap.GetTexel(Vector3(ray.dir[0], ray.dir[1], ray.dir[2]));
-		colorFromThisRay = Vector3(cubeMapColor.b, cubeMapColor.g, cubeMapColor.r);
-		return Vector3(1.0, 1.0, 1.0);
+		Color4 cubeMapColor = cubeMap.GetTexel(Vector3(ray.dir));
+		colorFromThisRay = Vector3(cubeMapColor.r, cubeMapColor.g, cubeMapColor.b);
+		return colorFromThisRay;// Vector3(1.0, 1.0, 1.0);
 	}
 	return colorFromThisRay;
 
 
 }
 
-
 int renderRenderingEqua(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap)
 {
 	//TODOH
 	cv::Mat src_8uc3_img(480, 640, CV_32FC3);
 
-#pragma omp parallel for
-	for (int x = 0; x < 640; x++)
+	for (float i = 0.1; i <= 1.0f; i += 0.3)
 	{
-		for (int y = 0; y < 480; y++)
+		std::string str = "renderingEquation" + std::to_string(i);
+
+		//#pragma omp parallel for
+		for (int x = 0; x < 640; x++)
 		{
-
-			Ray rtc_ray = camera.GenerateRay(x, y);
-
-
-
-
-
-			int numOfsamples = 100;
-			Vector3 re;
-			for (int sample = 0; sample < numOfsamples; sample++)
+#pragma omp parallel for schedule(dynamic, 5) shared(scene, surfaces, src_8uc3_img, camera)
+			for (int y = 0; y < 480; y++)
 			{
-				re += renderingEquation(rtc_ray.org, rtc_ray.dir, scene, surfaces, 20, cubeMap);
+
+				Ray rtc_ray = camera.GenerateRay(x, y);
+
+
+
+
+
+				int numOfsamples = 50;
+				Vector3 re;
+				for (int sample = 0; sample < numOfsamples; sample++)
+				{
+					re += renderingEquation(rtc_ray.org, rtc_ray.dir, scene, surfaces, 5, cubeMap, i);
+
+				}
+				re = re / numOfsamples;
+
+
+				src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(re.z, re.y, re.x);
+
 
 			}
-			re = re / numOfsamples;
-
-
-			src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(re.z, re.y, re.x);
-
-
+			cv::imshow(str, src_8uc3_img); // display image
+			cvMoveWindow(str.c_str(), 10, 10);
+			cvWaitKey(1);
 		}
+
 	}
 
 
-
-
-	cv::imshow("renderingEquation", src_8uc3_img); // display image
-	cvMoveWindow("renderingEquation", 10, 10);
+	//cv::imshow("renderingEquation", src_8uc3_img); // display image
+	//cvMoveWindow("renderingEquation", 10, 10);
 	return 0;
 }
 
@@ -756,10 +785,7 @@ Vector3 lerp(Vector3 v0, Vector3 v1, float t) {
 	//return vdiff + v0;
 	return (1 - t)*v0 + t*v1;
 }
-Vector3 reflect(Vector3 normal, Vector3 viewVec)
-{
-	return 2 * (normal.DotProduct(viewVec)) * normal - viewVec;
-}
+
 
 Matrix4x4 GenerateFrame(Vector3 input)
 {
@@ -834,251 +860,11 @@ Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roug
 #define MY_MIN( X, Y ) ( ( X ) < ( Y ) ? ( X ) : ( Y ) )
 
 
-void geom_dist(IplImage* src, IplImage* dst, bool bili, double K1 = 1.0, double K2 = 1.0)
-{
-	double cu = src->width * 0.5;
-	double cv = src->height * 0.5;
-	double R = sqrt(cu*cu + cv*cv);
 
 
-	for (int yn = 0; yn < src->height; yn++) {
-		uchar* ptr_dst = (uchar*)(dst->imageData + (int)yn * dst->widthStep);
-		for (int xn = 0; xn < src->width; xn++) {
 
-			double x = (xn - cu) / R;
-			double y = (yn - cv) / R;
-			double sqrR = x*x + y*y;
-			double fi_sqrR = 1 + K1 * sqrR + K2 * sqrR*sqrR;
 
-			double xd = (xn - cu) * (1 / fi_sqrR) + cu;
-			double yd = (yn - cv) * (1 / fi_sqrR) + cv;
 
-			uchar* ptr_src = (uchar*)(src->imageData + (int)yd * src->widthStep);
-
-
-			ptr_dst[3 * (int)xn + 0] = ptr_src[3 * (int)xd + 0]; //Set B (BGR format)
-			ptr_dst[3 * (int)xn + 1] = ptr_src[3 * (int)xd + 1]; //Set G (BGR format)
-			ptr_dst[3 * (int)xn + 2] = ptr_src[3 * (int)xd + 2]; //Set R (BGR format)
-		}
-	}
-}
-
-
-//int K1 = 3.0, K2 = 1.0;
-RTCScene scene = rtcDeviceNewScene(RTCDevice(), RTC_SCENE_STATIC | RTC_SCENE_HIGH_QUALITY, RTC_INTERSECT1/* | RTC_INTERPOLATE*/);
-std::vector<Surface *> & surfaces = std::vector<Surface *>();
-Camera & camera = Camera(10, 10, Vector3(0, 0, 0), Vector3(0, 0, 0), 0);
-cv::Vec3f lightPosition = cv::Vec3f();
-CubeMap cubeMap = CubeMap("a");
-IplImage *img_geom;
-int _roughness;
-int _metallic;
-int _ior;
-
-
-
-
-int projRenderGGX_Distribution_geom(IplImage * img_geom, float roughness, float metallic, float ior)
-{
-
-
-#pragma omp parallel for
-
-	for (int y = 0; y < img_geom->height; y++)
-	{
-		uchar* ptr_dst = (uchar*)(img_geom->imageData + (int)y * img_geom->widthStep);
-		for (int x = 0; x < img_geom->width; x++)
-		{
-			Vector3 ret;
-
-			Ray rtc_ray = camera.GenerateRay(x, y);
-
-			//Vector3 re = phongRecursion(0, rtc_ray, Vector3(lightPosition[0], lightPosition[1], lightPosition[2]), camera.view_from(), scene, surfaces, cubeMap);
-
-
-
-
-			rtcIntersect(scene, rtc_ray);
-
-
-
-			if (rtc_ray.geomID != RTC_INVALID_GEOMETRY_ID)
-			{
-				Surface * surface = surfaces[rtc_ray.geomID];
-				Triangle & triangle = surface->get_triangle(rtc_ray.primID);
-
-				Vector3 normal = triangle.normal(rtc_ray.u, rtc_ray.v);
-
-				Vector3 rayDir = Vector3(rtc_ray.dir[0], rtc_ray.dir[1], rtc_ray.dir[2]);
-				rayDir.Normalize();
-
-				Vector3 h = rayDir + normal;
-				h.Normalize();
-
-
-				//if (normal.DotProduct(rayDir) < 0)
-				//{
-				//	normal = -normal;
-				//}
-
-				// F = Fresnel_Schlick(abs(rayDir.DotProduct(normal)), F0_v);
-				// D = GGX_Distribution(normal, h, alpha) ;
-				// G = GGX_PartialGeometryTerm(rayDir, normal, h, alpha);
-
-				Material *mtl = surface->get_material();
-
-
-				//Vector3 surfa = mtl->shininess;//cubeMap.GetTexel(rayDir);
-
-
-				ior = 1;//mtl->ior;//1 + mtl->ior;
-				roughness = 0.5f;
-				//float roughness = saturate(mtl->shininess - EPSILON) + EPSILON;
-				metallic = 0.1f;//1 - alpha;
-
-
-
-				float F0_f = abs((1.0 - ior) / (1.0 + ior));
-				Vector3 F0 = Vector3(F0_f, F0_f, F0_f);
-				F0 = F0 * F0;
-				F0.Normalize();
-				F0 = lerp(F0, mtl->diffuse, metallic);
-
-
-				Vector3 ks = Vector3(0, 0, 0);
-				Vector3 specular = GGX_Specular(cubeMap, normal, rayDir, roughness, F0, &ks);
-				Vector3 kd = (Vector3(1, 1, 1) - ks) * (1 - metallic);
-
-				Vector3 irradiance = Vector3(cubeMap.GetTexel(normal).data);
-				Vector3 diffuse = mtl->diffuse * irradiance;
-
-				ret = Vector3(kd * diffuse + ks * specular);
-
-
-
-				//float D = GGX_Distribution(normal, h, alpha);
-				//float G = GGX_PartialGeometryTerm(rayDir, normal, h, alpha);
-
-				//int numSamples = 500;
-
-				//Vector3 ret;
-				//Vector3 omega_i;
-				//Vector3 omega_o = rayDir;
-				//float OIoN;
-				//float OOoN = abs(omega_o.DotProduct(h));
-				//
-
-				//for (int i = 0; i < numSamples; i++)
-				//{
-				//	omega_i = rr_Omega_i(normal);
-				//	OIoN = abs(omega_i.DotProduct(h));
-
-				//	ret += (F * D * G) / (4 * OIoN * OOoN);
-				//}
-
-				//
-				//ret = ret / numSamples;
-
-
-
-
-				//ret = (F * D * G) / (4 * OIoN * OOoN); // GGX_Distribution(normal, h, alpha) ;
-
-
-
-
-				//ret = 1 ret;
-
-
-
-
-			}
-			else
-			{
-				Color4 col = cubeMap.GetTexel(Vector3(rtc_ray.dir));
-				ret = Vector3(col.data);
-			}
-
-			ptr_dst[3 * (int)x + 0] = ret.x; // ptr_src[3 * (int)xd + 0]; //Set B (BGR format)
-			ptr_dst[3 * (int)x + 1] = ret.y;//ptr_src[3 * (int)xd + 1]; //Set G (BGR format)
-			ptr_dst[3 * (int)x + 2] = ret.z;//ptr_src[3 * (int)xd + 2]; //Set R (BGR format)
-
-
-		}
-	}
-
-	//for (int x = 0; x < 640; x++)
-	//{
-	//	for (int y = 0; y < 480; y++)
-	//	{
-
-	//		
-
-
-
-	//		/*src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(re.z, re.y, re.x);*/
-
-
-	//	}
-	//}
-
-	//std::string str = "GGX_Distribution metallic(" + std::to_string(metallic) + ")  roughness(" + std::to_string(alpha) + ")";
-	//cv::imshow(str, src_8uc3_img); // display image
-
-	//cv::moveWindow(str, 10, 50);
-
-	return 0;
-}
-
-void on_change(int id)
-{
-	projRenderGGX_Distribution_geom(img_geom, ((float)_roughness) / 100.0f, ((float)_metallic) / 100.0f, ((float)_ior) / 100.0f);//, false, K1 / 100.0, K2 / 100.0);
-	cvShowImage("Geom Dist", img_geom);
-	cvMoveWindow("Geom Dist", 10, 50);
-
-}
-
-int renderGeomDist(RTCScene & _scene, std::vector<Surface *> & _surfaces, Camera & _camera, cv::Vec3f _lightPosition, CubeMap _cubeMap)
-{
-	/*img = cvLoadImage("images/distorted_window.jpg", CV_LOAD_IMAGE_COLOR);
-	if (!img)
-	{
-	printf("Unable to load image!\n");
-	exit(-1);
-	}*/
-
-	/*cvNamedWindow("Original Image");
-	cvShowImage("Original Image", img);*/
-
-	scene = _scene;
-	surfaces = _surfaces;
-	camera = _camera;
-	lightPosition = _lightPosition;
-	cubeMap = _cubeMap;
-
-	_roughness = 1.0f;
-	_metallic = 0.5f;
-	_ior = 1.0f;
-
-	img_geom = cvCreateImage(cvSize(640, 480), 32, 3);
-
-	//cvSet(img_geom, cvScalar(0, 0, 0));
-
-	projRenderGGX_Distribution_geom(img_geom, ((float)_roughness) / 100.0f, ((float)_metallic) / 100.0f, ((float)_ior) / 100.0f);//, false, K1 / 100.0, K2 / 100.0);
-
-	cvNamedWindow("Geom Dist");
-	cvShowImage("Geom Dist", img_geom);
-	cvMoveWindow("Geom Dist", 10, 50);
-
-	cvCreateTrackbar("roughness", "Geom Dist", &_roughness, 100, on_change);
-	cvCreateTrackbar("metallic", "Geom Dist", &_metallic, 100, on_change);
-	cvCreateTrackbar("ior", "Geom Dist", &_ior, 2000, on_change);
-
-
-	cvWaitKey(0);
-
-	return 0;
-}
 
 int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap)
 {
@@ -1831,7 +1617,10 @@ int main(int argc, char * argv[])
 
 
 	//renderPhong(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
-	renderPhong(scene, surfaces, cameraSPaceShip, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+	//renderPhong(scene, surfaces, cameraSPaceShip, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+
+	renderRenderingEqua(scene, surfaces, cameraSPaceShip, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+
 	//TODOH
 	/////////ENDSHADERS
 
