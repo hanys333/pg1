@@ -522,6 +522,14 @@ Vector3 rr_Omega_i(Vector3 normal)
 
 }
 
+
+double fRandom(double fMin, double fMax)
+{
+
+	double f = (double)rand() / RAND_MAX;
+	return fMin + f * (fMax - fMin);
+}
+
 //Pro nas experiment
 // Li(omegai) = 1
 
@@ -531,7 +539,7 @@ double rr_Li(Vector3 omega_i)
 }
 
 
-Vector3 renderingEquation(Vector3 P, Vector3 direction, RTCScene & scene, std::vector<Surface *> & surfaces, int depth, CubeMap cubeMap, float R)
+Vector3 renderingEquation(Vector3 P, Vector3 direction, RTCScene & scene, std::vector<Surface *> & surfaces, int depth, CubeMap cubeMap)
 {
 	Ray ray = Ray(P, direction);
 	ray.tnear = .1f;                                                                //TNEAR
@@ -562,6 +570,7 @@ Vector3 renderingEquation(Vector3 P, Vector3 direction, RTCScene & scene, std::v
 		Vector3 material_DP = (surface->get_material())->diffuse;
 
 
+
 		colorFromThisRay = Vector3(0, 0, 0);
 		if (depth != 0)
 		{
@@ -580,27 +589,35 @@ Vector3 renderingEquation(Vector3 P, Vector3 direction, RTCScene & scene, std::v
 
 			int N = 1;                              //Pocet paprsku pro integrovani Monte-Christo
 			Vector3 Suma = Vector3(0.0, 0.0, 0.0);
+
+			float R = surface->get_material()->ior == 1.5f ? 0.1f : 1.0f;
+
 			for (int i = 0; i < N; i++)
 			{
 				
 
 				Vector3 omegai = rr_Omega_i(norm);
 
-				Vector3 Li = renderingEquation(p, omegai, scene, surfaces, depth - 1, cubeMap, R);
+				Vector3 Li = renderingEquation(p, omegai, scene, surfaces, depth - 1, cubeMap);
 
 				Vector3 reflection = reflect(normal, omega0);
 
-				Vector3 Li_reflect = renderingEquation(p, reflection, scene, surfaces, depth - 1, cubeMap, R);
+				reflection.x *= fRandom(0.99f, 1.01f);
+				reflection.y *= fRandom(0.99f, 1.01f);
+				reflection.z *= fRandom(0.99f, 1.01f);
+				reflection.Normalize();
+
+				Vector3 Li_reflect = renderingEquation(p, reflection, scene, surfaces, depth - 1, cubeMap);
 
 				double Fr = rr_Fr(omega0, omegai);
-				double pdf = omegai.DotProduct(normal) /(2* M_PI);// 1 / (2 * M_PI);           //Uniformni rozdeleni pdf?
-				Suma += ((Li * Fr * (omegai.DotProduct(norm))) / pdf) * R
+				double pdf = omegai.DotProduct(norm) /(2* M_PI);// 1 / (2 * M_PI);           //Uniformni rozdeleni pdf?
+				Suma += ((Li * Fr * (omegai.DotProduct(norm))) / pdf) * R// * material_DP
 					+
 					(Li_reflect * (1 - R));
 				//Suma = Suma + (Li * Fr * 1) / (pdf*2.0);
 			}
 
-			colorFromThisRay = (Le + (1 / N) * (Suma)) * material_DP;
+			colorFromThisRay = (Le + (1 / N) * (Suma)) * material_DP ;
 			//          colorFromThisRay = colorFromThisRay * material_DP;
 
 		}
@@ -621,48 +638,48 @@ Vector3 renderingEquation(Vector3 P, Vector3 direction, RTCScene & scene, std::v
 
 }
 
+
 int renderRenderingEqua(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap)
 {
 	//TODOH
 	cv::Mat src_8uc3_img(480, 640, CV_32FC3);
 
-	for (float i = 0.1; i <= 1.0f; i += 0.3)
+
+	std::string str = "renderingEquation";
+
+	//#pragma omp parallel for
+	for (int x = 0; x < 640; x++)
 	{
-		std::string str = "renderingEquation" + std::to_string(i);
-
-		//#pragma omp parallel for
-		for (int x = 0; x < 640; x++)
-		{
 #pragma omp parallel for schedule(dynamic, 5) shared(scene, surfaces, src_8uc3_img, camera)
-			for (int y = 0; y < 480; y++)
+		for (int y = 0; y < 480; y++)
+		{
+
+			Ray rtc_ray = camera.GenerateRay(x, y);
+
+
+
+
+
+			int numOfsamples = 50;
+			Vector3 re;
+			for (int sample = 0; sample < numOfsamples; sample++)
 			{
-
-				Ray rtc_ray = camera.GenerateRay(x, y);
-
-
-
-
-
-				int numOfsamples = 50;
-				Vector3 re;
-				for (int sample = 0; sample < numOfsamples; sample++)
-				{
-					re += renderingEquation(rtc_ray.org, rtc_ray.dir, scene, surfaces, 5, cubeMap, i);
-
-				}
-				re = re / numOfsamples;
-
-
-				src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(re.z, re.y, re.x);
-
+				re += renderingEquation(rtc_ray.org, rtc_ray.dir, scene, surfaces, 5, cubeMap);
 
 			}
-			cv::imshow(str, src_8uc3_img); // display image
-			cvMoveWindow(str.c_str(), 10, 10);
-			cvWaitKey(1);
-		}
+			re = re / numOfsamples;
 
+
+			src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(re.z, re.y, re.x);
+
+
+		}
+		cv::imshow(str, src_8uc3_img); // display image
+		cvMoveWindow(str.c_str(), 10, 10);
+		cvWaitKey(1);
 	}
+
+
 
 
 	//cv::imshow("renderingEquation", src_8uc3_img); // display image
@@ -689,13 +706,32 @@ float saturate(float val)
 	return val;
 }
 
-double fRandom(double fMin, double fMax)
-{
 
-	double f = (double)rand() / RAND_MAX;
-	return fMin + f * (fMax - fMin);
+
+Vector3 orthogonal(const Vector3 & v)
+{
+	return (abs(v.x) > abs(v.z)) ? Vector3(-v.y, v.x, 0.0f) : Vector3(0.0f,
+		-v.z, v.y);
 }
 
+Vector3 TransformToWS(Vector3 normal, Vector3 direction)
+{
+
+	// normal je osa z 
+	Vector3 o1 = orthogonal(normal); // o1 je pomocna osa x 
+	o1.Normalize();
+	Vector3 o2 = o1.CrossProduct(normal); // o2 je pomocna osa y 
+	o2.Normalize();
+
+	Vector3 direction_ws = Vector3(
+		o1.x * direction.x + o2.x * direction.y + normal.x * direction.z,
+		o1.y * direction.x + o2.y * direction.y + normal.y * direction.z,
+		o1.z * direction.x + o2.z * direction.y + normal.z * direction.z
+		); // direction je vstupni vektor, ktery chcete "posadit" do ws 
+	direction_ws.Normalize();
+
+	return direction_ws;
+}
 
 Vector3 Get_Omega_i(Vector3 normal, float alpha)
 {
@@ -812,20 +848,20 @@ Vector3 GenerateGGXsampleVector(int i, int SamplesCount, float roughness, Vector
 Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roughness, Vector3 F0, Vector3 *kS)
 {
 	Vector3 reflectionVector = reflect(-rayDir, normal);
-	Matrix4x4 worldFrame = GenerateFrame(reflectionVector);
+	//Matrix4x4 worldFrame = GenerateFrame(reflectionVector);
 	Vector3 radiance = Vector3(0, 0, 0);
 	float  NoV = saturate(normal.DotProduct(rayDir));
 
-	int SamplesCount = 100;
+	int SamplesCount = 300;
 
 	for (int i = 0; i < SamplesCount; i++)
 	{
 		// Generate a sample vector in some local space
 		Vector3 sampleVector = GenerateGGXsampleVector(i, SamplesCount, roughness, normal);
 		// Convert the vector in world space
-		sampleVector = worldFrame * sampleVector;
+		sampleVector = TransformToWS(reflectionVector, sampleVector);// worldFrame * sampleVector;
 
-		sampleVector.Normalize();
+		//sampleVector.Normalize();
 
 		// Calculate the half vector
 		Vector3 halfVector = sampleVector + rayDir;
@@ -871,19 +907,20 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 	//TODOH
 	//float alpha = 0.5f;
 
-	for (float alpha = 0.1f; alpha <= 1.1f; alpha += 0.2f)
+	for (float alpha = 0.1f; alpha <= 0.9f; alpha += 0.2f)
 	{
 		alpha = saturate(alpha);
 		cv::Mat src_8uc3_img(480, 640, CV_32FC3);
 
-		float roughness = 0.5f;
+		float roughness = 1 - alpha;
 		float ior = 1;
-		float metallic = alpha;
+		float metallic = alpha;// 0.1;
 
+		std::string str = "GGX_Distribution metallic(" + std::to_string(metallic) + ")  roughness(" + std::to_string(roughness) + ")" + " ior(" + std::to_string(ior) + ")";
 
-#pragma omp parallel for
 		for (int x = 0; x < 640; x++)
 		{
+#pragma omp parallel for schedule(dynamic, 5) shared(scene, surfaces, src_8uc3_img, camera)
 			for (int y = 0; y < 480; y++)
 			{
 
@@ -912,6 +949,9 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 					Vector3 h = rayDir + normal;
 					h.Normalize();
 
+
+					normal = normal.DotProduct(rayDir) < 0 ? -normal : normal;
+					normal.Normalize();
 
 					//if (normal.DotProduct(rayDir) < 0)
 					//{
@@ -969,15 +1009,18 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 
 
 				/*src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(re.z, re.y, re.x);*/
-
+				
 
 			}
+
+			cv::imshow(str, src_8uc3_img); // display image
+
+			cv::moveWindow(str, 10, 50);
+			cvWaitKey(1);
 		}
 
-		std::string str = "GGX_Distribution metallic(" + std::to_string(metallic) + ")  roughness(" + std::to_string(roughness) + ")";
-		cv::imshow(str, src_8uc3_img); // display image
-
-		cv::moveWindow(str, 10, 50);
+		//std::string str = "GGX_Distribution metallic(" + std::to_string(metallic) + ")  roughness(" + std::to_string(roughness) + ")";
+		
 	}
 	return 0;
 }
@@ -1602,8 +1645,8 @@ int main(int argc, char * argv[])
 
 	//cv::Mat src_8uf3_spaceship(480, 640, CV_32FC3);
 
-	CubeMap cubeMap = CubeMap::CubeMap("../../data/tenerife");
-	//CubeMap cubeMap = CubeMap::CubeMap("../../data/yokohama");
+	//CubeMap cubeMap = CubeMap::CubeMap("../../data/tenerife");
+	CubeMap cubeMap = CubeMap::CubeMap("../../data/yokohama");
 
 
 	//////Camera cameraBackground = Camera(640, 480, Vector3(0.0f, 0.0f, 0.0f),
@@ -1615,6 +1658,8 @@ int main(int argc, char * argv[])
 
 	Camera cameraSPhere = Camera(640, 480, Vector3(3.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
 
+
+	//projRenderGGX_Distribution(scene, surfaces, cameraSPaceShip, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
 
 	//renderPhong(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
 	//renderPhong(scene, surfaces, cameraSPaceShip, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);

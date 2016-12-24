@@ -56,16 +56,19 @@ Material::~Material()
 	}
 }
 
-void Material::set_name( const char * name )
+void Material::set_name(const char * name)
 {
-	name_ = std::string( name );
+	name_ = std::string(name);
+
+	//ior = 1.5f;
 
 	if (name_ == "green_plastic_transparent")
 	{
 		ior = 1.5f;
-		diffuse = Vector3(0.749019608f, 0.941176471f, 0.2f);
-		//diffuse = Vector3(100.0f / 255.0f, 204.0f / 255.0f, 0);
+		//diffuse = Vector3(0.749019608f, 0.941176471f, 0.2f);
 	}
+
+
 }
 
 std::string Material::get_name() const
