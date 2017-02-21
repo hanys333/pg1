@@ -88,6 +88,74 @@ void filter_occlusion(void * user_ptr, Ray & ray)
 	ray.geomID = RTC_INVALID_GEOMETRY_ID; // reject hit
 }
 
+#define SQR( x ) ( ( x ) * ( x ) )
+#define DEG2RAD( x ) ( ( x ) * M_PI / 180.0 )
+#define MY_MIN( X, Y ) ( ( X ) < ( Y ) ? ( X ) : ( Y ) )
+
+#pragma region GPG
+
+Vector3 sphere_S;
+float sphere_r;
+
+Vector3 IntersectSphere(Vector3 S, float r, RTCRay &ray)
+{
+	Vector3 u = Vector3(ray.dir);
+	Vector3 A = Vector3(ray.org);
+
+	u.Normalize();
+
+	float a = SQR(u.x) + SQR(u.y) + SQR(u.z);
+	float b = 2 * (A.x * u.x - S.x * u.x + A.y * u.y - S.y * u.y + A.z * u.z - S.z * u.z);
+	float c = SQR(A.x - S.x) + SQR(A.y - S.y) + SQR(A.z - S.z) - SQR(r);
+
+
+	float determinant = SQR(b) - 4 * a * c;
+
+
+	if (determinant < 0)
+	{
+		ray.geomID = RTC_INVALID_GEOMETRY_ID;
+		return Vector3(0,0,0);
+	}
+	else 
+	{
+		ray.geomID = 1;
+		float t = (- b - sqrt(determinant)) / (2 * a);
+		
+
+		if (t < ray.tnear || t > ray.tfar)
+		{
+			if (determinant != 0)
+			{
+				t = (-b + sqrt(determinant)) / (2 * a);
+
+				if (t < ray.tnear || t > ray.tfar)
+				{
+					ray.geomID = RTC_INVALID_GEOMETRY_ID;
+					return Vector3(0, 0, 0);
+				}
+				
+				//return Vector3(A.x + u.x * t, A.y + u.y * t, A.z + u.z * t);
+			}
+			else
+			{
+				ray.geomID = RTC_INVALID_GEOMETRY_ID;
+				return Vector3(0, 0, 0);
+			}
+		}
+
+
+		return Vector3(A.x + u.x * t, A.y + u.y * t, A.z + u.z * t);
+		
+
+	}
+
+}
+
+
+#pragma endregion
+
+
 #pragma region old_projects
 
 int test(RTCScene & scene, std::vector<Surface *> & surfaces)
@@ -457,7 +525,8 @@ int renderBackground(RTCScene & scene, std::vector<Surface *> & surfaces, Camera
 
 Vector3 reflect(Vector3 normal, Vector3 viewVec)
 {
-	return 2 * (normal.DotProduct(viewVec)) * normal - viewVec;
+	return viewVec - normal * ((2 * viewVec.DotProduct(normal)));
+	//return   2 * (normal.DotProduct(viewVec)) * normal - viewVec;
 }
 
 #pragma region renderovacirovnice 
@@ -716,7 +785,7 @@ Vector3 orthogonal(const Vector3 & v)
 
 Vector3 TransformToWS(Vector3 normal, Vector3 direction)
 {
-
+	direction.Normalize();
 	// normal je osa z 
 	Vector3 o1 = orthogonal(normal); // o1 je pomocna osa x 
 	o1.Normalize();
@@ -765,7 +834,7 @@ Vector3 Get_Omega_i(Vector3 normal, float alpha)
 
 
 	float r = 1;
-	float theta = atan((alpha* sqrt(eps1)) / sqrt(1 - eps1));
+	float theta = atan((sqrt(eps1)) / sqrt(1 - eps1));
 	float fi = 2 * M_PI * eps2;
 
 	Vector3 sampleVector = Vector3(0, 0, 0);
@@ -790,7 +859,7 @@ float GGX_Distribution(Vector3 n, Vector3 h, float alpha)
 	float NoH = n.DotProduct(h);
 	float alpha2 = alpha * alpha;
 	float NoH2 = NoH * NoH;
-	float den = NoH2 * (alpha2 + ((1 - NoH2) / NoH2));
+	float den = NoH2 * alpha2 + (1 - NoH2);// / NoH2));
 	return (chiGGX(NoH) * alpha2) / (M_PI * den * den);
 }
 
@@ -839,29 +908,56 @@ Matrix4x4 GenerateFrame(Vector3 input)
 		0, 0, 0, 0);
 }
 
-Vector3 GenerateGGXsampleVector(int i, int SamplesCount, float roughness, Vector3 normal)
+float radicalInverse_VdC(uint bits) {
+	bits = (bits << 16u) | (bits >> 16u);
+	bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+	bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+	bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+	bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+	return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+}
+
+Vector2 hammersley2d(uint i, uint N) {
+	return Vector2(float(i) / float(N), radicalInverse_VdC(i));
+}
+
+Vector3 hemisphereSample_uniform(float u, float v) {
+	float phi = v * 2.0 * M_PI;
+	float cosTheta = 1.0 - u;
+	float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+	return Vector3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+}
+
+Vector3 GenerateGGXsampleVector(int i, int SamplesCount, float roughness)//, Vector3 normal)
 {
-	//TODOLAST
-	return Get_Omega_i(normal, roughness);
+	
+	
+	Vector2 v2 = hammersley2d(i, SamplesCount);
+	//v2.x = v2.x * roughness;
+	return hemisphereSample_uniform(v2.x, v2.y) ;
+	//return hemisphereSample_uniform(i, SamplesCount);
 }
 
 Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roughness, Vector3 F0, Vector3 *kS)
 {
-	Vector3 reflectionVector = reflect(-rayDir, normal);
+	//rayDir = -rayDir;
+
+	Vector3 reflectionVector = reflect(normal, -rayDir);
 	//Matrix4x4 worldFrame = GenerateFrame(reflectionVector);
 	Vector3 radiance = Vector3(0, 0, 0);
 	float  NoV = saturate(normal.DotProduct(rayDir));
 
-	int SamplesCount = 300;
+	int SamplesCount = 100;
 
 	for (int i = 0; i < SamplesCount; i++)
 	{
 		// Generate a sample vector in some local space
-		Vector3 sampleVector = GenerateGGXsampleVector(i, SamplesCount, roughness, normal);
+		Vector3 sampleVector = GenerateGGXsampleVector(i, SamplesCount, roughness);
+		sampleVector.Normalize();
 		// Convert the vector in world space
 		sampleVector = TransformToWS(reflectionVector, sampleVector);// worldFrame * sampleVector;
 
-		//sampleVector.Normalize();
+		sampleVector.Normalize();
 
 		// Calculate the half vector
 		Vector3 halfVector = sampleVector + rayDir;
@@ -878,7 +974,7 @@ Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roug
 		float denominator = saturate(4 * (NoV * saturate(halfVector.DotProduct(normal)) + 0.05));
 		*kS += fresnel;
 		// Accumulate the radiance
-		radiance += Vector3(cubeMap.GetTexel(sampleVector).data) * geometry * fresnel * sinT / denominator;
+		radiance += Vector3(cubeMap.GetTexel(sampleVector).data)  * geometry * fresnel * sinT / denominator;
 	}
 
 	// Scale back for the samples count
@@ -891,9 +987,7 @@ Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roug
 }
 
 
-#define SQR( x ) ( ( x ) * ( x ) )
-#define DEG2RAD( x ) ( ( x ) * M_PI / 180.0 )
-#define MY_MIN( X, Y ) ( ( X ) < ( Y ) ? ( X ) : ( Y ) )
+
 
 
 
@@ -905,16 +999,16 @@ Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roug
 int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap)
 {
 	//TODOH
-	//float alpha = 0.5f;
+	float alpha = 1.0f;
 
-	for (float alpha = 0.1f; alpha <= 0.9f; alpha += 0.2f)
+	//for (float alpha = 0.1f; alpha <= 0.9f; alpha += 0.2f)
 	{
 		alpha = saturate(alpha);
 		cv::Mat src_8uc3_img(480, 640, CV_32FC3);
 
-		float roughness = 1 - alpha;
+		float roughness = 0.5;
 		float ior = 1;
-		float metallic = alpha;// 0.1;
+		float metallic = 0.5;
 
 		std::string str = "GGX_Distribution metallic(" + std::to_string(metallic) + ")  roughness(" + std::to_string(roughness) + ")" + " ior(" + std::to_string(ior) + ")";
 
@@ -975,12 +1069,13 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 					//metallic = 0.1f;//1 - alpha;
 
 
+					Vector3 diffuse_mtl = mtl->diffuse; //Vector3(0.5, 0, 0.5); // mtl-> diffuse
 
 					float F0_f = abs((1.0 - ior) / (1.0 + ior));
 					Vector3 F0 = Vector3(F0_f, F0_f, F0_f);
 					F0 = F0 * F0;
 					F0.Normalize();
-					F0 = lerp(F0, mtl->diffuse, metallic);
+					F0 = lerp(F0, diffuse_mtl, metallic);
 
 
 					Vector3 ks = Vector3(0, 0, 0);
@@ -988,7 +1083,7 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 					Vector3 kd = (Vector3(1, 1, 1) - ks) * (1 - metallic);
 
 					Vector3 irradiance = Vector3(cubeMap.GetTexel(normal).data);
-					Vector3 diffuse = mtl->diffuse * irradiance;
+					Vector3 diffuse = diffuse_mtl * irradiance;
 
 					ret = Vector3(kd * diffuse + specular);
 
@@ -1001,7 +1096,7 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 				}
 				else
 				{
-					Color4 col = cubeMap.GetTexel(Vector3(rtc_ray.dir));
+					Color4 col = cubeMap.GetTexel(Vector3(rtc_ray.dir)); //Color4(0, 0, 0, 0); //
 					src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(col.b, col.g, col.r);
 
 				}
@@ -1097,49 +1192,38 @@ Vector3 PhongShader(Vector3 normal, Vector3 lightPosition, Vector3 point, Vector
 
 Vector3 phongRecursion(int depth, Ray rtc_ray, Vector3 lightPosition, Vector3 eyePosition, RTCScene & scene, std::vector<Surface *> & surfaces, CubeMap cubeMap)
 {
-	//if (depth == 4) // konec rekurze
-	//{
-	//	Surface * surfad = surfaces[rtc_ray.geomID];
-	//	Triangle & triangle = surfa->get_triangle(rtc_ray.primID);
-	//	return PhongShader(n, lightPosition, rtc_ray.eval(rtc_ray.tfar), eyePosition - (rtc_ray.eval(rtc_ray.tfar)), surfaces[0]->get_material->specular, scene, surfaces[0]->get_material, triangle.normal(rtc_ray.u, rtc_ray.v), true);
-	//	//Vector3 v = Vector3(1, 0, 0); //surfaces. Vector3(1, 1, 1);
-	//	//return v;
-	//}
+	
 
-	rtcIntersect(scene, rtc_ray);
-
+	//TODO  nahrazeni rtcIntersect
+	//rtcIntersect(scene, rtc_ray);
+	Vector3 p = IntersectSphere(sphere_S, sphere_r, rtc_ray);
 
 
 
 	if (rtc_ray.geomID != RTC_INVALID_GEOMETRY_ID)
 	{
-		Surface * surfa = surfaces[rtc_ray.geomID];
+		//TODO OLD PG1
+		/*Surface * surfa = surfaces[rtc_ray.geomID];
 		Triangle & triangle = surfa->get_triangle(rtc_ray.primID);
-		////Triangle * triangle2 = &( surface->get_triangles()[rtc_ray.primID] );
-
-		//// získání souřadnic průsečíku, normál, texturovacích souřadnic atd.
-		//const Vector3 p = rtc_ray.eval(rtc_ray.tfar);
-		//Vector3 geometry_normal = -Vector3(rtc_ray.Ng); // Ng je nenormalizovaná normála zasaženého trojúhelníka vypočtená nesouhlasně s pravidlem pravé ruky o závitu
-		//geometry_normal.Normalize(); // normála zasaženého trojúhelníka vypočtená souhlasně s pravidlem pravé ruky o závitu
-
+		
 		Vector3 n = triangle.normal(rtc_ray.u, rtc_ray.v);
 		n.Normalize();
 
 
-
 		Vector2 tuv = triangle.texture_coord(rtc_ray.u, rtc_ray.v);
-
-
+		
 		const Vector3 p = rtc_ray.eval(rtc_ray.tfar);
-
-		////////////Vector3 L = (lightPosition - point);
-		////////////L.Normalize();
-		////////////Vector3 E = eyeDirection;
-
-		////////////Vector3 H = (E + L);
-		////////////H.Normalize();
-
 		Material * mtl = surfa->get_material();
+		*/
+		
+		Vector2 tuv(0, 0);
+
+		Vector3 n = p - sphere_S;
+		n.Normalize();
+
+		Material *mtl = new Material();
+		mtl->ior = 1.5f;
+		
 
 		if (depth == 10) // puvodne 10
 		{
@@ -1313,6 +1397,18 @@ int renderPhong(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & ca
 
 			Ray rtc_ray = camera.GenerateRay(x, y);
 			rtc_ray.set_ior(1.0f);
+
+		/*	Vector3 inter = IntersectSphere(sphere_S, sphere_r, rtc_ray);
+
+			if (rtc_ray.geomID != RTC_INVALID_GEOMETRY_ID)
+			{
+				src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(0, 0, 0);
+			}
+			else
+			{
+				src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(1, 1, 1);
+			}
+*/
 			Vector3 re = phongRecursion(0, rtc_ray, Vector3(lightPosition[0], lightPosition[1], lightPosition[2]), camera.view_from(), scene, surfaces, cubeMap);
 			src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(re.z, re.y, re.x);
 
@@ -1327,10 +1423,12 @@ int renderPhong(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & ca
 
 #pragma endregion 
 
-#define SQR(x) ((x)* (x))
+
 
 #pragma region PROJEKT_UE4
 
+
+#define SQR(x) ((x)* (x))
 float HemmersleySigma(int i, int numSamples)
 {
 	float sum = 0;
@@ -1510,12 +1608,6 @@ int renderSpecularIBL(RTCScene & scene, std::vector<Surface *> & surfaces, Camer
 
 
 
-/*
-Seznam úkolů:
-
-1, Doplnit TODO v souboru tracing.cpp.
-*/
-
 int main(int argc, char * argv[])
 {
 	printf("PG1, (c)2011-2016 Tomas Fabian\n\n");
@@ -1530,16 +1622,16 @@ int main(int argc, char * argv[])
 	std::vector<Material *> materials;
 
 	// načtení geometrie
-	if (LoadOBJ("../../data/6887_allied_avenger.obj", Vector3(0.5f, 0.5f, 0.5f), surfaces, materials) < 0)
+	/*if (LoadOBJ("../../data/6887_allied_avenger.obj", Vector3(0.5f, 0.5f, 0.5f), surfaces, materials) < 0)
 	{
 		return -1;
-	}
+	}*/
 
 
-	//if (LoadOBJ("../../data/geosphere.obj", Vector3(0.5f, 0.5f, 0.5f), surfaces, materials) < 0)
-	//{
-	//	return -1;
-	//}
+	/*if (LoadOBJ("../../data/geosphere.obj", Vector3(0.5f, 0.5f, 0.5f), surfaces, materials) < 0)
+	{
+		return -1;
+	}*/
 
 	// vytvoření scény v rámci Embree
 	RTCScene scene = rtcDeviceNewScene(device, RTC_SCENE_STATIC | RTC_SCENE_HIGH_QUALITY, RTC_INTERSECT1/* | RTC_INTERPOLATE*/);
@@ -1656,15 +1748,19 @@ int main(int argc, char * argv[])
 	//renderNormal(scene, surfaces, cameraSPaceShip, src_8uf3_spaceship);
 	//renderLambert(scene, surfaces, cameraSPaceShip, src_8uf3_spaceship, cv::Vec3f(-400.0f, -500.0f, 370.0f));
 
-	Camera cameraSPhere = Camera(640, 480, Vector3(3.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
+	Camera cameraSPhere = Camera(640, 480, Vector3(2.0f, -2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
 
 
-	//projRenderGGX_Distribution(scene, surfaces, cameraSPaceShip, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+	//projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
 
 	//renderPhong(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
-	//renderPhong(scene, surfaces, cameraSPaceShip, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+	
+	sphere_S = Vector3(0, 0, 0);
+	sphere_r = 1.0f;
+	
+	renderPhong(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
 
-	renderRenderingEqua(scene, surfaces, cameraSPaceShip, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+	//renderRenderingEqua(scene, surfaces, cameraSPaceShip, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
 
 	//TODOH
 	/////////ENDSHADERS
