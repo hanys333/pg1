@@ -62,11 +62,11 @@ void Material::set_name(const char * name)
 
 	//ior = 1.5f;
 
-	if (name_ == "green_plastic_transparent")
-	{
-		ior = 1.5f;
-		//diffuse = Vector3(0.749019608f, 0.941176471f, 0.2f);
-	}
+	//if (name_ == "green_plastic_transparent")
+	//{
+	//	ior = 1.5f;
+	//	//diffuse = Vector3(0.749019608f, 0.941176471f, 0.2f);
+	//}
 
 
 }

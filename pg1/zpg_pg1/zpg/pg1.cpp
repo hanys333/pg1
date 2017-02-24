@@ -592,12 +592,12 @@ Vector3 rr_Omega_i(Vector3 normal)
 }
 
 
-double fRandom(double fMin, double fMax)
-{
-
-	double f = (double)rand() / RAND_MAX;
-	return fMin + f * (fMax - fMin);
-}
+//double fRandom(double fMin, double fMax)
+//{
+//
+//	double f = (double)rand() / RAND_MAX;
+//	return fMin + f * (fMax - fMin);
+//}
 
 //Pro nas experiment
 // Li(omegai) = 1
@@ -671,9 +671,9 @@ Vector3 renderingEquation(Vector3 P, Vector3 direction, RTCScene & scene, std::v
 
 				Vector3 reflection = reflect(normal, omega0);
 
-				reflection.x *= fRandom(0.99f, 1.01f);
+				/*reflection.x *= fRandom(0.99f, 1.01f);
 				reflection.y *= fRandom(0.99f, 1.01f);
-				reflection.z *= fRandom(0.99f, 1.01f);
+				reflection.z *= fRandom(0.99f, 1.01f);*/
 				reflection.Normalize();
 
 				Vector3 Li_reflect = renderingEquation(p, reflection, scene, surfaces, depth - 1, cubeMap);
@@ -783,10 +783,12 @@ Vector3 orthogonal(const Vector3 & v)
 		-v.z, v.y);
 }
 
-Vector3 TransformToWS(Vector3 normal, Vector3 direction)
+Vector3 TransformToWS(Vector3 normal, Vector3 direction, float roughness)
 {
 	direction.Normalize();
 	// normal je osa z 
+	//normal.z = (1-roughness) * normal.z;
+	normal.Normalize();
 	Vector3 o1 = orthogonal(normal); // o1 je pomocna osa x 
 	o1.Normalize();
 	Vector3 o2 = o1.CrossProduct(normal); // o2 je pomocna osa y 
@@ -794,8 +796,8 @@ Vector3 TransformToWS(Vector3 normal, Vector3 direction)
 
 	Vector3 direction_ws = Vector3(
 		o1.x * direction.x + o2.x * direction.y + normal.x * direction.z,
-		o1.y * direction.x + o2.y * direction.y + normal.y * direction.z,
-		o1.z * direction.x + o2.z * direction.y + normal.z * direction.z
+		(o1.y * direction.x + o2.y * direction.y + normal.y * direction.z),
+		(o1.z * direction.x + o2.z * direction.y + normal.z * direction.z)
 		); // direction je vstupni vektor, ktery chcete "posadit" do ws 
 	direction_ws.Normalize();
 
@@ -828,8 +830,8 @@ Vector3 Get_Omega_i(Vector3 normal, float alpha)
 	//return retval;
 
 
-	float eps1 = fRandom(0.0f, 1.0f);
-	float eps2 = fRandom(0.0f, 1.0f);
+	float eps1 =  Random();
+	float eps2 = Random();
 
 
 
@@ -942,7 +944,7 @@ Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roug
 {
 	//rayDir = -rayDir;
 
-	Vector3 reflectionVector = reflect(normal, -rayDir);
+	Vector3 reflectionVector = reflect(normal, rayDir);
 	//Matrix4x4 worldFrame = GenerateFrame(reflectionVector);
 	Vector3 radiance = Vector3(0, 0, 0);
 	float  NoV = saturate(normal.DotProduct(rayDir));
@@ -955,7 +957,7 @@ Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roug
 		Vector3 sampleVector = GenerateGGXsampleVector(i, SamplesCount, roughness);
 		sampleVector.Normalize();
 		// Convert the vector in world space
-		sampleVector = TransformToWS(reflectionVector, sampleVector);// worldFrame * sampleVector;
+		sampleVector = TransformToWS(reflectionVector, sampleVector, roughness);// worldFrame * sampleVector;
 
 		sampleVector.Normalize();
 
@@ -974,7 +976,7 @@ Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roug
 		float denominator = saturate(4 * (NoV * saturate(halfVector.DotProduct(normal)) + 0.05));
 		*kS += fresnel;
 		// Accumulate the radiance
-		radiance += Vector3(cubeMap.GetTexel(sampleVector).data)  * geometry * fresnel * sinT / denominator;
+		radiance += Vector3(cubeMap.GetTexel(sampleVector).data) * geometry * fresnel * sinT / denominator;
 	}
 
 	// Scale back for the samples count
@@ -996,7 +998,7 @@ Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roug
 
 
 
-int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap)
+int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap, CubeMap specularCubeMap)
 {
 	//TODOH
 	float alpha = 1.0f;
@@ -1006,9 +1008,17 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 		alpha = saturate(alpha);
 		cv::Mat src_8uc3_img(480, 640, CV_32FC3);
 
-		float roughness = 0.5;
+		float roughness = 0;
 		float ior = 1;
-		float metallic = 0.5;
+		float metallic = 0;
+		Vector3 baseColor;
+		
+
+		//baseColor = Vector3(0.560, 0.570, 0.580); // iron
+		//baseColor = Vector3(0.972, 0.960, 0.915); // silver
+		//baseColor = Vector3(0.913, 0.921, 0.925); // aluminium
+		baseColor = Vector3(1.000, 0.766, 0.336); // gold
+		//baseColor = Vector3(0.550, 0.556, 0.554); // chromium
 
 		std::string str = "GGX_Distribution metallic(" + std::to_string(metallic) + ")  roughness(" + std::to_string(roughness) + ")" + " ior(" + std::to_string(ior) + ")";
 
@@ -1037,7 +1047,7 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 
 					Vector3 normal = triangle.normal(rtc_ray.u, rtc_ray.v);
 
-					Vector3 rayDir = Vector3(rtc_ray.dir[0], rtc_ray.dir[1], rtc_ray.dir[2]);
+					Vector3 rayDir = -Vector3(rtc_ray.dir[0], rtc_ray.dir[1], rtc_ray.dir[2]);
 					rayDir.Normalize();
 
 					Vector3 h = rayDir + normal;
@@ -1069,7 +1079,7 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 					//metallic = 0.1f;//1 - alpha;
 
 
-					Vector3 diffuse_mtl = mtl->diffuse; //Vector3(0.5, 0, 0.5); // mtl-> diffuse
+					Vector3 diffuse_mtl = baseColor;//mtl->diffuse; //Vector3(0.5, 0, 0.5); // mtl-> diffuse
 
 					float F0_f = abs((1.0 - ior) / (1.0 + ior));
 					Vector3 F0 = Vector3(F0_f, F0_f, F0_f);
@@ -1079,13 +1089,13 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 
 
 					Vector3 ks = Vector3(0, 0, 0);
-					Vector3 specular = GGX_Specular(cubeMap, normal, rayDir, roughness, F0, &ks);
+					Vector3 specular = GGX_Specular(specularCubeMap, normal, rayDir, roughness, F0, &ks);
 					Vector3 kd = (Vector3(1, 1, 1) - ks) * (1 - metallic);
 
 					Vector3 irradiance = Vector3(cubeMap.GetTexel(normal).data);
 					Vector3 diffuse = diffuse_mtl * irradiance;
 
-					ret = Vector3(kd * diffuse + specular);
+					ret = Vector3(kd * diffuse + ks * specular);
 
 					src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(ret.z, ret.y, ret.x);
 
@@ -1628,10 +1638,10 @@ int main(int argc, char * argv[])
 	}*/
 
 
-	/*if (LoadOBJ("../../data/geosphere.obj", Vector3(0.5f, 0.5f, 0.5f), surfaces, materials) < 0)
+	if (LoadOBJ("../../data/geosphere.obj", Vector3(0.5f, 0.5f, 0.5f), surfaces, materials) < 0)
 	{
 		return -1;
-	}*/
+	}
 
 	// vytvoření scény v rámci Embree
 	RTCScene scene = rtcDeviceNewScene(device, RTC_SCENE_STATIC | RTC_SCENE_HIGH_QUALITY, RTC_INTERSECT1/* | RTC_INTERPOLATE*/);
@@ -1739,7 +1749,8 @@ int main(int argc, char * argv[])
 
 	//CubeMap cubeMap = CubeMap::CubeMap("../../data/tenerife");
 	CubeMap cubeMap = CubeMap::CubeMap("../../data/yokohama");
-
+	
+	CubeMap specularCubeMap = CubeMap::CubeMap("../../data/yokohamaSpecular");
 
 	//////Camera cameraBackground = Camera(640, 480, Vector3(0.0f, 0.0f, 0.0f),
 	//////	Vector3(1,0,0), DEG2RAD(120.0f));
@@ -1748,17 +1759,17 @@ int main(int argc, char * argv[])
 	//renderNormal(scene, surfaces, cameraSPaceShip, src_8uf3_spaceship);
 	//renderLambert(scene, surfaces, cameraSPaceShip, src_8uf3_spaceship, cv::Vec3f(-400.0f, -500.0f, 370.0f));
 
-	Camera cameraSPhere = Camera(640, 480, Vector3(2.0f, -2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
+	Camera cameraSPhere = Camera(640, 480, Vector3(2.0f, 2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
 
 
-	//projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+	projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap, specularCubeMap);
 
-	//renderPhong(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+
 	
-	sphere_S = Vector3(0, 0, 0);
+	/*sphere_S = Vector3(0, 0, 0);
 	sphere_r = 1.0f;
 	
-	renderPhong(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+	renderPhong(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);*/
 
 	//renderRenderingEqua(scene, surfaces, cameraSPaceShip, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
 
