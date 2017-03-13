@@ -9,6 +9,27 @@ Vector3::Vector3( const float * v )
 	z = v[2];
 }
 
+Vector3 Vector3::GetFromSpherical(float theta, float phi)
+{
+	float r = 1;
+	return Vector3(r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta));
+
+}
+
+Vector3 Vector3::GetSPhericalCoordinates()
+{
+	Vector3 res = Vector3();
+
+	res.z = sqrt(SQR(x) + SQR(y) + SQR(z));
+	res.x = acos(z / res.z);
+
+	res.y = atan(y / x);
+
+	return res;
+}
+
+
+
 float Vector3::L2Norm() const
 {
 	return sqrt( SQR( x ) + SQR( y ) + SQR( z ) );

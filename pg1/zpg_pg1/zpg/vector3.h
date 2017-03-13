@@ -61,6 +61,13 @@ public:
 	*/
 	Vector3( const float * v );
 
+	static Vector3 GetFromSpherical(float theta, float phi);
+
+	//! Ziskava sphericke souradnice x = theta, y = phi z = r.
+	Vector3 GetSPhericalCoordinates();
+
+
+
 	//! L2-norma vektoru.
 	/*!
 	\return x Hodnotu \f$\mathbf{||v||}=\sqrt{x^2+y^2+z^2}\f$.

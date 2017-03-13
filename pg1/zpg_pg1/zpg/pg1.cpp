@@ -525,7 +525,9 @@ int renderBackground(RTCScene & scene, std::vector<Surface *> & surfaces, Camera
 
 Vector3 reflect(Vector3 normal, Vector3 viewVec)
 {
-	return viewVec - normal * ((2 * viewVec.DotProduct(normal)));
+	viewVec.Normalize();
+
+	return viewVec - 2 * normal * viewVec.DotProduct(normal);
 	//return   2 * (normal.DotProduct(viewVec)) * normal - viewVec;
 }
 
@@ -759,8 +761,6 @@ int renderRenderingEqua(RTCScene & scene, std::vector<Surface *> & surfaces, Cam
 
 #pragma endregion 
 
-#pragma region GGXDistribution
-
 float saturate(float val)
 {
 	if (val > 1)
@@ -779,11 +779,10 @@ float saturate(float val)
 
 Vector3 orthogonal(const Vector3 & v)
 {
-	return (abs(v.x) > abs(v.z)) ? Vector3(-v.y, v.x, 0.0f) : Vector3(0.0f,
-		-v.z, v.y);
+	return (abs(v.x) > abs(v.z)) ? Vector3(-v.y, v.x, 0.0f) : Vector3(0.0f, -v.z, v.y);
 }
 
-Vector3 TransformToWS(Vector3 normal, Vector3 direction, float roughness)
+Vector3 TransformToWS(Vector3 normal, Vector3 direction)
 {
 	direction.Normalize();
 	// normal je osa z 
@@ -798,11 +797,15 @@ Vector3 TransformToWS(Vector3 normal, Vector3 direction, float roughness)
 		o1.x * direction.x + o2.x * direction.y + normal.x * direction.z,
 		(o1.y * direction.x + o2.y * direction.y + normal.y * direction.z),
 		(o1.z * direction.x + o2.z * direction.y + normal.z * direction.z)
-		); // direction je vstupni vektor, ktery chcete "posadit" do ws 
+	); // direction je vstupni vektor, ktery chcete "posadit" do ws 
 	direction_ws.Normalize();
 
 	return direction_ws;
 }
+
+
+#pragma region GGXDistribution
+
 
 Vector3 Get_Omega_i(Vector3 normal, float alpha)
 {
@@ -930,17 +933,56 @@ Vector3 hemisphereSample_uniform(float u, float v) {
 	return Vector3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
 }
 
-Vector3 GenerateGGXsampleVector(int i, int SamplesCount, float roughness)//, Vector3 normal)
+
+float Ph(float theta, float phi, float alpha)
 {
-	
-	
-	Vector2 v2 = hammersley2d(i, SamplesCount);
-	//v2.x = v2.x * roughness;
-	return hemisphereSample_uniform(v2.x, v2.y) ;
-	//return hemisphereSample_uniform(i, SamplesCount);
+	//return (SQR(alpha) * cos(theta) * sin(theta)) / M_PI * SQR((SQR(alpha) - 1) * SQR(cos(theta)) + 1);
+	return (2 * SQR(alpha) * cos(theta) * sin(theta)) / SQR((SQR(alpha) - 1) * SQR(cos(theta)) + 1);
 }
 
-Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roughness, Vector3 F0, Vector3 *kS)
+float GetTheta(float alpha)
+{
+	float epsilon = Random();
+	return acos(sqrt((1 - epsilon) / (epsilon * (SQR(alpha) - 1) + 1)));
+	//return atan(alpha * sqrt(epsilon / (1 - epsilon)));
+}
+
+
+Vector3 GenerateGGXsampleVector(int i, int SamplesCount, float roughness)//, Vector3 normal)
+{
+	int ii = 0;
+
+	while(true) //for (size_t i = 0; i < 5; i++)
+	{
+		float theta = GetTheta(roughness);
+		float phi = Random(0, 2 * M_PI);
+		float random = Random();
+
+		float ph = Ph(theta, phi, roughness) / M_PI * 2;
+		//printf("Pokus %d cyklus(%d) ph=%f  phi=%f\n", i, ii, ph, theta);
+
+		if (ph > 1 - roughness)
+		{
+			return Vector3::GetFromSpherical(theta, phi);
+		}
+		else
+		{
+			ii++;
+			continue;
+		}
+	}
+
+	
+
+
+
+	//Vector2 v2 = hammersley2d(i, SamplesCount);
+	////v2.x = v2.x * roughness;
+	//return hemisphereSample_uniform(v2.x, v2.y) ;
+	////return hemisphereSample_uniform(i, SamplesCount);
+}
+
+Vector3 GGX_Specular(CubeMap cubeMapSpecular, Vector3 normal, Vector3 rayDir, float roughness, Vector3 F0, Vector3 *kS, int SamplesCount, CubeMap cubeMapDiffuse, Vector3 *irradiance)
 {
 	//rayDir = -rayDir;
 
@@ -949,15 +991,17 @@ Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roug
 	Vector3 radiance = Vector3(0, 0, 0);
 	float  NoV = saturate(normal.DotProduct(rayDir));
 
-	int SamplesCount = 100;
+
 
 	for (int i = 0; i < SamplesCount; i++)
 	{
 		// Generate a sample vector in some local space
 		Vector3 sampleVector = GenerateGGXsampleVector(i, SamplesCount, roughness);
+		
+		////
 		sampleVector.Normalize();
-		// Convert the vector in world space
-		sampleVector = TransformToWS(reflectionVector, sampleVector, roughness);// worldFrame * sampleVector;
+		////// Convert the vector in world space
+		sampleVector = TransformToWS(normal, sampleVector);// worldFrame * sampleVector;
 
 		sampleVector.Normalize();
 
@@ -976,7 +1020,8 @@ Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roug
 		float denominator = saturate(4 * (NoV * saturate(halfVector.DotProduct(normal)) + 0.05));
 		*kS += fresnel;
 		// Accumulate the radiance
-		radiance += Vector3(cubeMap.GetTexel(sampleVector).data) * geometry * fresnel * sinT / denominator;
+		radiance += Vector3(cubeMapSpecular.GetTexel(sampleVector).data) * geometry * fresnel * sinT / denominator;
+		*irradiance += Vector3(cubeMapDiffuse.GetTexel(sampleVector).data);
 	}
 
 	// Scale back for the samples count
@@ -984,6 +1029,9 @@ Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roug
 	(*kS).x = saturate((*kS).x);
 	(*kS).y = saturate((*kS).y);
 	(*kS).z = saturate((*kS).z);
+
+	*irradiance = *irradiance / SamplesCount;
+	 
 
 	return radiance / SamplesCount;
 }
@@ -1000,13 +1048,12 @@ Vector3 GGX_Specular(CubeMap cubeMap, Vector3 normal, Vector3 rayDir, float roug
 
 int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap, CubeMap specularCubeMap)
 {
-	//TODOH
-	float alpha = 1.0f;
 
 	//for (float alpha = 0.1f; alpha <= 0.9f; alpha += 0.2f)
 	{
-		alpha = saturate(alpha);
 		cv::Mat src_8uc3_img(480, 640, CV_32FC3);
+
+		float alpha = 0.1f;
 
 		float roughness = 0;
 		float ior = 1;
@@ -1020,7 +1067,14 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 		baseColor = Vector3(1.000, 0.766, 0.336); // gold
 		//baseColor = Vector3(0.550, 0.556, 0.554); // chromium
 
+		ior = 1 + baseColor.x;
+		//roughness = saturate(baseColor.y - alpha) + alpha;
+		roughness = alpha;
+		metallic = baseColor.z;
+		metallic = 0;
+		int SamplesCount = 100;
 		std::string str = "GGX_Distribution metallic(" + std::to_string(metallic) + ")  roughness(" + std::to_string(roughness) + ")" + " ior(" + std::to_string(ior) + ")";
+
 
 		for (int x = 0; x < 640; x++)
 		{
@@ -1041,21 +1095,26 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 
 				if (rtc_ray.geomID != RTC_INVALID_GEOMETRY_ID)
 				{
+					
+
 					Vector3 ret;
 					Surface * surface = surfaces[rtc_ray.geomID];
 					Triangle & triangle = surface->get_triangle(rtc_ray.primID);
 
 					Vector3 normal = triangle.normal(rtc_ray.u, rtc_ray.v);
 
-					Vector3 rayDir = -Vector3(rtc_ray.dir[0], rtc_ray.dir[1], rtc_ray.dir[2]);
+					Vector3 rayDir = Vector3(rtc_ray.dir);
 					rayDir.Normalize();
+
+					
+
+					normal = normal.DotProduct(rayDir) < 0 ? -normal : normal;
+					normal.Normalize();
 
 					Vector3 h = rayDir + normal;
 					h.Normalize();
 
-
-					normal = normal.DotProduct(rayDir) < 0 ? -normal : normal;
-					normal.Normalize();
+					Vector3 reflectionVector = reflect(normal, rayDir);
 
 					//if (normal.DotProduct(rayDir) < 0)
 					//{
@@ -1079,27 +1138,77 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 					//metallic = 0.1f;//1 - alpha;
 
 
-					Vector3 diffuse_mtl = baseColor;//mtl->diffuse; //Vector3(0.5, 0, 0.5); // mtl-> diffuse
+					//Vector3 diffuse_mtl = baseColor;//mtl->diffuse; //Vector3(0.5, 0, 0.5); // mtl-> diffuse
 
-					float F0_f = abs((1.0 - ior) / (1.0 + ior));
+					
+
+
+					float F0_f = saturate((1.0 - ior) / (1.0 + ior));
 					Vector3 F0 = Vector3(F0_f, F0_f, F0_f);
 					F0 = F0 * F0;
 					F0.Normalize();
-					F0 = lerp(F0, diffuse_mtl, metallic);
+					F0 = lerp(F0, baseColor, metallic);
 
+					Vector3 irradiance = Vector3(0, 0, 0);
 
 					Vector3 ks = Vector3(0, 0, 0);
-					Vector3 specular = GGX_Specular(specularCubeMap, normal, rayDir, roughness, F0, &ks);
+					Vector3 specular = GGX_Specular(specularCubeMap, normal, rayDir, roughness, F0, &ks, SamplesCount, cubeMap, &irradiance);
 					Vector3 kd = (Vector3(1, 1, 1) - ks) * (1 - metallic);
 
-					Vector3 irradiance = Vector3(cubeMap.GetTexel(normal).data);
-					Vector3 diffuse = diffuse_mtl * irradiance;
+					//Vector3 irradiance = Vector3(cubeMap.GetTexel(reflectionVector).data);
 
-					ret = Vector3(kd * diffuse + ks * specular);
+//					
+
+
+//					//samplovani na barvu
+//#pragma region Samplovani na odraz
+//					for (int i = 0; i < SamplesCount; i++)
+//					{
+//						// Generate a sample vector in some local space
+//						Vector3 sampleVector = GenerateGGXsampleVector(i, SamplesCount, roughness);
+//
+//						////
+//						sampleVector.Normalize();
+//						////// Convert the vector in world space
+//						sampleVector = TransformToWS(reflectionVector, sampleVector);// worldFrame * sampleVector;
+//
+//						sampleVector.Normalize();
+//
+//						// Calculate the half vector
+//						Vector3 halfVector = sampleVector + rayDir;
+//						halfVector.Normalize();
+//
+//						float cosT = saturate(sampleVector.DotProduct(normal));
+//						float sinT = sqrt(1 - cosT * cosT);
+//
+//						// Calculate fresnel
+//						Vector3 fresnel = Fresnel_Schlick(saturate(halfVector.DotProduct(rayDir)), F0);
+//						// Geometry term
+//						float geometry = GGX_PartialGeometryTerm(rayDir, normal, halfVector, roughness) * GGX_PartialGeometryTerm(sampleVector, normal, halfVector, roughness);
+//						// Calculate the Cook-Torrance denominator
+//						float denominator = saturate(4 * (NoV * saturate(halfVector.DotProduct(normal)) + 0.05));
+//						*kS += fresnel;
+//						// Accumulate the radiance
+//						radiance += Vector3(cubeMap.GetTexel(sampleVector).data) * geometry * fresnel * sinT / denominator;
+//					}
+//					return radiance / SamplesCount;
+//#pragma endregion
+//					// Scale back for the samples count
+//					*kS = *kS / SamplesCount;
+//					(*kS).x = saturate((*kS).x);
+//					(*kS).y = saturate((*kS).y);
+//					(*kS).z = saturate((*kS).z);
+//
+//					
+
+
+					Vector3 diffuse = baseColor * irradiance;
+
+					ret = Vector3(irradiance);
 
 					src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(ret.z, ret.y, ret.x);
 
-
+					//kd * diffuse + ks * specular
 
 
 
@@ -1132,6 +1241,126 @@ int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfac
 
 
 #pragma endregion
+
+int testSamplingOnSphere(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap)
+{
+
+	cv::Mat src_8uc3_img(480, 640, CV_32FC3);
+	float roughness = 0.5f;
+
+		int SamplesCount = 100;
+		std::string str = "testSamplingOnSphere roughness(" + std::to_string(roughness) + ")";
+
+
+		for (int x = 0; x < 640; x++)
+		{
+#pragma omp parallel for schedule(dynamic, 5) shared(scene, surfaces, src_8uc3_img, camera)
+			for (int y = 0; y < 480; y++)
+			{
+
+				Ray rtc_ray = camera.GenerateRay(x, y);
+
+				//Vector3 re = phongRecursion(0, rtc_ray, Vector3(lightPosition[0], lightPosition[1], lightPosition[2]), camera.view_from(), scene, surfaces, cubeMap);
+
+
+
+
+				rtcIntersect(scene, rtc_ray);
+
+
+
+				if (rtc_ray.geomID != RTC_INVALID_GEOMETRY_ID)
+				{
+
+
+					Vector3 ret;
+					Surface * surface = surfaces[rtc_ray.geomID];
+					Triangle & triangle = surface->get_triangle(rtc_ray.primID);
+
+					Vector3 normal = triangle.normal(rtc_ray.u, rtc_ray.v);
+
+					Vector3 rayDir = Vector3(rtc_ray.dir);
+					rayDir.Normalize();
+
+
+
+					normal = normal.DotProduct(rayDir) < 0 ? normal : -normal;
+					normal.Normalize();
+
+					/*normal += Vector3(1, 1, 1);
+					normal *= 0.5;
+					src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(normal.z, normal.y, normal.x);
+					continue;
+*/
+					Vector3 reflectionVector = reflect(normal, rayDir);
+
+					//reflectionVector += Vector3(1, 1, 1);
+					//reflectionVector *= 0.5;
+
+					//src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(reflectionVector.z, reflectionVector.y, reflectionVector.x);
+					//continue;
+
+					Vector3 irradiance = Vector3(0, 0, 0);
+
+					for (int i = 0; i < SamplesCount; i++)
+					{
+						// Generate a sample vector in some local space
+						Vector3 sampleVector = GenerateGGXsampleVector(i, SamplesCount, roughness);
+						//sampleVector = Vector3(0,0,1);
+						////
+						sampleVector.Normalize();
+						////// Convert the vector in world space
+						sampleVector = TransformToWS(normal, sampleVector);// worldFrame * sampleVector;
+						sampleVector.Normalize();
+
+						
+						
+						irradiance += Vector3(cubeMap.GetTexel(sampleVector).data);
+					}
+
+					irradiance = irradiance / SamplesCount;
+
+					ret = Vector3(irradiance);
+
+					/*ret += Vector3(1, 1, 1);
+					ret *= 0.5;*/
+					
+
+					src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(ret.z, ret.y, ret.x);
+
+					//kd * diffuse + ks * specular
+
+
+
+				}
+				else
+				{
+					Color4 col = cubeMap.GetTexel(Vector3(rtc_ray.dir)); //Color4(0, 0, 0, 0); //
+					src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(col.b, col.g, col.r);
+
+				}
+
+
+
+				/*src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(re.z, re.y, re.x);*/
+
+
+			}
+
+			cv::imshow(str, src_8uc3_img); // display image
+
+			cv::moveWindow(str, 10, 50);
+			cvWaitKey(1);
+		}
+
+		//std::string str = "GGX_Distribution metallic(" + std::to_string(metallic) + ")  roughness(" + std::to_string(roughness) + ")";
+
+	
+	return 0;
+}
+
+
+
 
 #pragma region Phong
 
@@ -1616,6 +1845,40 @@ int renderSpecularIBL(RTCScene & scene, std::vector<Surface *> & surfaces, Camer
 #pragma endregion
 
 
+int GenerateTestingSamples(float roughness, cv::Vec3b color, char* name)
+{
+	int size = 200;
+	cv::Mat dst_resultTest(size, size, CV_8UC3);
+
+
+	//printf("Roughness:%f", roughness);
+
+	for (int x = 0; x < size; x++)
+	{
+		for (int y = 0; y < size; y++)
+		{
+			dst_resultTest.at<cv::Vec3b>(y, x) = cv::Vec3b(0, 0, 0);
+		}
+	}
+	for (int i = 0; i < 500; i++)
+	{
+
+
+
+
+		//printf("Zacatek Pokus:%d\n", i);
+		Vector3 vec = GenerateGGXsampleVector(i, 0, roughness);
+
+		dst_resultTest.at<cv::Vec3b>(size - (int)(vec.z * size), (int)(vec.x * size)) = color;
+
+
+		//printf("Pokus:%d   %f, %f, %f\n", i, vec.x, vec.y, vec.z);
+	}
+
+	cv::imshow(name, dst_resultTest);
+	//cvWaitKey(0);
+	return 1;
+}
 
 
 int main(int argc, char * argv[])
@@ -1761,11 +2024,16 @@ int main(int argc, char * argv[])
 
 	Camera cameraSPhere = Camera(640, 480, Vector3(2.0f, 2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
 
+	testSamplingOnSphere(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+	//projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap, specularCubeMap);
 
-	projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap, specularCubeMap);
+	//GenerateTestingSamples(0.01, cv::Vec3b(0, 0, 255), "0.01");
+	//GenerateTestingSamples(0.25, cv::Vec3b(0, 255, 0), "0.25");
+	//GenerateTestingSamples(0.5, cv::Vec3b(0, 255, 0), "0.5");
+	//GenerateTestingSamples(0.75, cv::Vec3b(255, 0, 0), "0.75");
+	//GenerateTestingSamples(0.99, cv::Vec3b(0,0,255), "0.99");
 
-
-	
+	//cv::waitKey(0);
 	/*sphere_S = Vector3(0, 0, 0);
 	sphere_r = 1.0f;
 	
