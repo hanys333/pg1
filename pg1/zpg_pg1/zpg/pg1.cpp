@@ -1,5 +1,6 @@
 #include "stdafx.h"
 
+
 void rtc_error_function(const RTCError code, const char * str)
 {
 	printf("ERROR in Embree: %s\n", str);
@@ -1046,7 +1047,7 @@ Vector3 GGX_Specular(CubeMap cubeMapSpecular, Vector3 normal, Vector3 rayDir, fl
 
 
 
-int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap, CubeMap specularCubeMap)
+int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap)
 {
 
 	//for (float alpha = 0.1f; alpha <= 0.9f; alpha += 0.2f)
@@ -1964,6 +1965,8 @@ int main(int argc, char * argv[])
 
 	rtcCommit(scene);
 
+	ggx_distribution distr(scene, surfaces);
+
 	// vytvoření kamery
 	//Camera camera = Camera( 640, 480, Vector3( -1.5f, -3.0f, 2.0f )*0.8f,
 	//	Vector3( 0.0f, 0.5f, 0.5f ), DEG2RAD( 40.0f ) );
@@ -2024,8 +2027,11 @@ int main(int argc, char * argv[])
 
 	Camera cameraSPhere = Camera(640, 480, Vector3(2.0f, 2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
 
-	testSamplingOnSphere(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
-	//projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap, specularCubeMap);
+	//testSamplingOnSphere(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+	//projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cubeMap, specularCubeMap);
+
+
+
 
 	//GenerateTestingSamples(0.01, cv::Vec3b(0, 0, 255), "0.01");
 	//GenerateTestingSamples(0.25, cv::Vec3b(0, 255, 0), "0.25");

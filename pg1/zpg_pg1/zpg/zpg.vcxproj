@@ -196,6 +196,7 @@
   <ItemGroup>
     <ClCompile Include="camera.cpp" />
     <ClCompile Include="CubeMap.cpp" />
+    <ClCompile Include="ggx_distribution.cpp" />
     <ClCompile Include="objloader.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -222,6 +223,7 @@
   <ItemGroup>
     <ClInclude Include="camera.h" />
     <ClInclude Include="CubeMap.h" />
+    <ClInclude Include="ggx_distribution.h" />
     <ClInclude Include="objloader.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
