@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "ggx_distribution.h"
 
 
 void rtc_error_function(const RTCError code, const char * str)
@@ -972,15 +973,6 @@ Vector3 GenerateGGXsampleVector(int i, int SamplesCount, float roughness)//, Vec
 			continue;
 		}
 	}
-
-	
-
-
-
-	//Vector2 v2 = hammersley2d(i, SamplesCount);
-	////v2.x = v2.x * roughness;
-	//return hemisphereSample_uniform(v2.x, v2.y) ;
-	////return hemisphereSample_uniform(i, SamplesCount);
 }
 
 Vector3 GGX_Specular(CubeMap cubeMapSpecular, Vector3 normal, Vector3 rayDir, float roughness, Vector3 F0, Vector3 *kS, int SamplesCount, CubeMap cubeMapDiffuse, Vector3 *irradiance)
@@ -1965,7 +1957,30 @@ int main(int argc, char * argv[])
 
 	rtcCommit(scene);
 
-	ggx_distribution distr(scene, surfaces);
+
+	//baseColor = Vector3(0.560, 0.570, 0.580); str = "IRON";// iron
+	//baseColor = Vector3(0.972, 0.960, 0.915); str = "SILVER"; // silver
+	//baseColor = Vector3(0.913, 0.921, 0.925); str = "ALUMINIUM"; // aluminium
+	//baseColor = Vector3(1.000, 0.766, 0.336); str = "GOLD";// gold
+	//baseColor = Vector3(0.550, 0.556, 0.554); str = "CHROMIUM"; // chromium
+
+	//Camera camSphere = Camera(640, 480, Vector3(2.0f, 2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
+
+	CubeMap cubeMap = CubeMap::CubeMap("../../data/yokohama");
+	Camera cameraSPhere = Camera(640, 480, Vector3(2.0f, 2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
+
+	ggx_distribution distr(scene, surfaces, 10, Vector3(0, 0, 0), std::string("a"));
+
+	for (int countSamples = 10; countSamples <= 100; countSamples +=10)
+	{
+		distr.StartRender(cameraSPhere, cubeMap, countSamples, Vector3(0.560, 0.570, 0.580), "IRON");
+		distr.StartRender(cameraSPhere, cubeMap, countSamples, Vector3(0.972, 0.960, 0.915), "SILVER");
+		distr.StartRender(cameraSPhere, cubeMap, countSamples, Vector3(0.913, 0.921, 0.925), "ALUMINIUM");
+		distr.StartRender(cameraSPhere, cubeMap, countSamples, Vector3(1.000, 0.766, 0.336), "GOLD");
+		distr.StartRender(cameraSPhere, cubeMap, countSamples, Vector3(0.550, 0.556, 0.554), "CHROMIUM");
+
+	}
+	
 
 	// vytvoření kamery
 	//Camera camera = Camera( 640, 480, Vector3( -1.5f, -3.0f, 2.0f )*0.8f,
@@ -2006,7 +2021,7 @@ int main(int argc, char * argv[])
 	/////////SHADERS
 	/*Camera cameraSPaceShip = Camera(640, 480, Vector3(-400.0f, -500.0f, 370.0f),
 	Vector3(70.0f, -40.5f, 5.0f), DEG2RAD(42.185f));*/
-
+	/*
 	Camera cameraSPaceShip = Camera(640, 480, Vector3(-140.0f, -175.0f, 110.0f), Vector3(0.0f, 0.0f, 40.0f), DEG2RAD(42.185f));
 
 	cameraSPaceShip.Print();
@@ -2026,7 +2041,7 @@ int main(int argc, char * argv[])
 	//renderLambert(scene, surfaces, cameraSPaceShip, src_8uf3_spaceship, cv::Vec3f(-400.0f, -500.0f, 370.0f));
 
 	Camera cameraSPhere = Camera(640, 480, Vector3(2.0f, 2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
-
+	*/
 	//testSamplingOnSphere(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
 	//projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cubeMap, specularCubeMap);
 
@@ -2057,7 +2072,7 @@ int main(int argc, char * argv[])
 	////renderSpecularIBL(scene, surfaces, cameraSPaceShip, roughness, cubeMap, Vector3(-400.0f, -500.0f, 370.0f), numSamples);*/
 
 
-	cv::waitKey(0);
+	//cv::waitKey(0);
 
 	// TODO *** ray tracing ****
 	test(scene, surfaces);

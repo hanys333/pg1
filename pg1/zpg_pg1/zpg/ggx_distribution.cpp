@@ -1,8 +1,8 @@
 #include "stdafx.h"
 #include "ggx_distribution.h"
 
-
-
+std::string path = "D:\\T4J\\VSB-pg1\\result\\";
+const int SamplesCount = 10;
 
 Vector3 ggx_distribution::orthogonal(const Vector3 & v)
 {
@@ -147,10 +147,14 @@ Vector3 ggx_distribution::GGX_Specular(CubeMap cubeMapSpecular, Vector3 normal, 
 
 
 
+int ggx_distribution::StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor)
+{
+	projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cubeMap, cubeMap, SamplesCount, baseColor, nameColor);
+	return 0;
+}
 
 
-
-int ggx_distribution::projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap)
+int ggx_distribution::projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor)
 {
 	cv::Mat src_8uc3_img(480, 640, CV_32FC3);
 
@@ -162,13 +166,13 @@ int ggx_distribution::projRenderGGX_Distribution(RTCScene & scene, std::vector<S
 
 	roughness = 0.01f;
 	metallic = 0.9f;*/
-	Vector3 baseColor;
-
-	//baseColor = Vector3(0.560, 0.570, 0.580); // iron
-	//baseColor = Vector3(0.972, 0.960, 0.915); // silver
-	//baseColor = Vector3(0.913, 0.921, 0.925); // aluminium
-	baseColor = Vector3(1.000, 0.766, 0.336); // gold
-											  //baseColor = Vector3(0.550, 0.556, 0.554); // chromium
+	//Vector3 baseColor;
+	std::string str;
+	//baseColor = Vector3(0.560, 0.570, 0.580); str = "IRON";// iron
+	//baseColor = Vector3(0.972, 0.960, 0.915); str = "SILVER"; // silver
+	//baseColor = Vector3(0.913, 0.921, 0.925); str = "ALUMINIUM"; // aluminium
+	//baseColor = Vector3(1.000, 0.766, 0.336); str = "GOLD";// gold
+	//baseColor = Vector3(0.550, 0.556, 0.554); str = "CHROMIUM"; // chromium
 	//baseColor = Vector3(0.61f, 0.606f, 0.958f);
 	
 
@@ -180,9 +184,13 @@ int ggx_distribution::projRenderGGX_Distribution(RTCScene & scene, std::vector<S
 	roughness = saturate(baseColor.y - alpha) + alpha;
 	roughness = alpha;
 	metallic = baseColor.z;*/
-	int SamplesCount = 300;
-	std::string str = "GGX_Distribution metallic(" + std::to_string(metallic) + ")  roughness(" + std::to_string(roughness) + ")" + " ior(" + std::to_string(ior) + ")";
-	metallic = 1;
+	
+	//metallic = 1;
+
+	str = nameColor + "_" + std::to_string(SamplesCount) + " metallic_" + std::to_string(metallic) + " roughness_" + std::to_string(roughness) + " " + "ior_" + std::to_string(ior);
+	
+
+	cv::namedWindow(str, 1);
 
 	for (int x = 0; x < 640; x++)
 	{
@@ -258,9 +266,22 @@ int ggx_distribution::projRenderGGX_Distribution(RTCScene & scene, std::vector<S
 		cv::imshow(str, src_8uc3_img); // display image
 
 		cv::moveWindow(str, 10, 50);
+
+		
+
 		cvWaitKey(1);
 	}
 
+	cv::Mat finalImage;
+
+	cv::convertScaleAbs(src_8uc3_img, finalImage, 255.0f);
+
+
+	std::string resultPath = path + str + ".png";
+	cv::imwrite(resultPath, finalImage);
+	std::cout << resultPath << std::endl;
+	//cvSaveImage("D:\\" + str + ".jpg", src_8uc3_img);
+	//cvWaitKey(0);
 	//std::string str = "GGX_Distribution metallic(" + std::to_string(metallic) + ")  roughness(" + std::to_string(roughness) + ")";
 
 
@@ -268,7 +289,7 @@ int ggx_distribution::projRenderGGX_Distribution(RTCScene & scene, std::vector<S
 }
 
 
-#pragma endregion
+//#pragma endregion
 
 int ggx_distribution::testSamplingOnSphere(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap)
 {
@@ -424,14 +445,14 @@ int ggx_distribution::GenerateTestingSamples(float roughness, cv::Vec3b color, c
 
 
 
-ggx_distribution::ggx_distribution(RTCScene & scene, std::vector<Surface *> & surfaces)
+ggx_distribution::ggx_distribution(RTCScene & _scene, std::vector<Surface *> & _surfaces, int SamplesCount, Vector3 baseColor, std::string nameColor)
 {
 
-	CubeMap cubeMap = CubeMap::CubeMap("../../data/yokohama");
-	Camera cameraSPhere = Camera(640, 480, Vector3(2.0f, 2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
-
+	/**/
+	scene = _scene;
+	surfaces = _surfaces;
 	
-	projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cubeMap, cubeMap);
+	//projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cubeMap, cubeMap, SamplesCount, baseColor, nameColor);
 
 	//TEST - sampling on sphere
 	//testSamplingOnSphere(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
@@ -440,6 +461,8 @@ ggx_distribution::ggx_distribution(RTCScene & scene, std::vector<Surface *> & su
 ggx_distribution::~ggx_distribution()
 {
 }
+
+
 
 
 

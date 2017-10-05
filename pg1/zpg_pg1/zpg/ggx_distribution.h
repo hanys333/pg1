@@ -1,7 +1,21 @@
-#pragma once
+#ifndef GGXDISTR_H_
+#define GGXDISTR_H_
+
+#include "camera.h"
+
 class ggx_distribution
 {
+private:
+	
+
 public:
+
+	RTCScene scene;
+	std::vector<Surface *> surfaces;
+	/*Camera cameraSPhere;
+	CubeMap cubeMap;*/
+
+
 	float saturate(float val)
 	{
 		if (val > 1)
@@ -47,14 +61,17 @@ public:
 	float GGX_PartialGeometryTerm(Vector3 v, Vector3 n, Vector3 h, float alpha);
 	Vector3 GGX_Specular(CubeMap cubeMapSpecular, Vector3 normal, Vector3 rayDir, float roughness, Vector3 F0, Vector3 * kS, int SamplesCount);
 	
-	int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface*>& surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap);
-	
+	int StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor);
+
+	int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor);
+
 	//TESTS
 	int testSamplingOnSphere(RTCScene & scene, std::vector<Surface*>& surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap);
 	int GenerateTestingSamples(float roughness, cv::Vec3b color, char * name);
 	
 	
-	ggx_distribution(RTCScene & scene, std::vector<Surface *> & surfaces);
+	ggx_distribution(RTCScene & scene, std::vector<Surface *> & surfaces, int SamplesCount, Vector3 baseColor, std::string nameColor);
 	~ggx_distribution();
 };
 
+#endif
