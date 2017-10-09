@@ -1966,29 +1966,61 @@ int main(int argc, char * argv[])
 
 	//Camera camSphere = Camera(640, 480, Vector3(2.0f, 2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
 
+
 	CubeMap cubeMap = CubeMap::CubeMap("../../data/yokohama");
 	Camera cameraSPhere = Camera(640, 480, Vector3(2.0f, 2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
 
 	ggx_distribution distr(scene, surfaces, 10, Vector3(0, 0, 0), std::string("a"));
 
-	for (int countSamples = 10; countSamples <= 100; countSamples +=10)
+
+#pragma region test na pocet samplu
+	/*
+	for (int countSamples = 10; countSamples <= 100; countSamples += 30)
 	{
 		distr.StartRender(cameraSPhere, cubeMap, countSamples, Vector3(0.560, 0.570, 0.580), "IRON");
 		distr.StartRender(cameraSPhere, cubeMap, countSamples, Vector3(0.972, 0.960, 0.915), "SILVER");
 		distr.StartRender(cameraSPhere, cubeMap, countSamples, Vector3(0.913, 0.921, 0.925), "ALUMINIUM");
 		distr.StartRender(cameraSPhere, cubeMap, countSamples, Vector3(1.000, 0.766, 0.336), "GOLD");
 		distr.StartRender(cameraSPhere, cubeMap, countSamples, Vector3(0.550, 0.556, 0.554), "CHROMIUM");
-
 	}
-	
+	//*/
+#pragma endregion
 
-	// vytvoření kamery
-	//Camera camera = Camera( 640, 480, Vector3( -1.5f, -3.0f, 2.0f )*0.8f,
-	//	Vector3( 0.0f, 0.5f, 0.5f ), DEG2RAD( 40.0f ) );
-	//camera.Print();
 
-	//Camera cameraNum = Camera(640, 480, Vector3(-400.0f, -500.0f, 370.0f),
-	//	Vector3(70.0f, -40.f, 5.0f), DEG2RAD(42.185f));
+#pragma region test na roughness samplu
+	/*
+
+	Vector3 goldColor = Vector3(0.61, 0.606, 0.958);// , "GOLD"
+
+	distr.StartRender(cameraSPhere, cubeMap, 50, goldColor, "ROUGHNESSTest_Chromuim", 0.1, 0.01f, 0.9);
+	distr.StartRender(cameraSPhere, cubeMap, 50, goldColor, "ROUGHNESSTest_Chromuim", 0.1, 0.2f, 0.9);
+	distr.StartRender(cameraSPhere, cubeMap, 50, goldColor, "ROUGHNESSTest_Chromuim", 0.1, 0.5f, 0.9);
+	//*/
+#pragma endregion
+
+#pragma region test na metallic samplu
+	/*
+
+	//Vector3 goldColor = Vector3(1.000, 0.766, 0.336);// , "GOLD"
+
+	distr.StartRender(cameraSPhere, cubeMap, 50, goldColor, "MEtALLICTest_Chromium", -1, -1 ,0.1f);
+	distr.StartRender(cameraSPhere, cubeMap, 50, goldColor, "MEtALLICTest_Chromium", -1, -1, 0.5f);
+	distr.StartRender(cameraSPhere, cubeMap, 50, goldColor, "MEtALLICTest_Chromium", -1, -1, 1.0f);
+
+	/*for (float roughness = 0.1f; roughness <= 1.2; roughness += 0.3)
+	{
+
+	distr.StartRender(cameraSPhere, cubeMap, 50, goldColor, "GOLD_ROUGHNESSTest", -1, roughness, -1);
+	}*/
+	//*/
+#pragma endregion
+
+
+	Vector3 goldColor = Vector3(1.000, 0.766, 0.336);// , "GOLD"
+
+	distr.StartRender(cameraSPhere, cubeMap, 50, goldColor, "IOR_Test_Gold", 0.1, -1, -1);
+	distr.StartRender(cameraSPhere, cubeMap, 50, goldColor, "IOR_Test_Gold", 0.5, -1, -1);
+	distr.StartRender(cameraSPhere, cubeMap, 50, goldColor, "IOR_Test_Gold", 1, -1, -1);
 
 	//Camera camera = Camera(640, 480, Vector3(-20.f, 0.f, 0.f),
 	//	Vector3(0.f, 0.f, 0.f), DEG2RAD(42.185f));

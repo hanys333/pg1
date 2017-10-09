@@ -147,14 +147,39 @@ Vector3 ggx_distribution::GGX_Specular(CubeMap cubeMapSpecular, Vector3 normal, 
 
 
 
-int ggx_distribution::StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor)
+//int ggx_distribution::StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor)
+//{
+//	float ior = 1 + baseColor.x;
+//	float roughness = saturate(baseColor.y - EPSILON) + EPSILON;
+//	float metallic = baseColor.z;
+//
+//	projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cubeMap, cubeMap, SamplesCount, baseColor, ior, roughness, metallic, nameColor);
+//
+//	
+//
+//	return 0;
+//}
+
+int ggx_distribution::StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor, float _ior, float _roughness, float _metallic)
 {
-	projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cubeMap, cubeMap, SamplesCount, baseColor, nameColor);
+	float ior, roughness, metallic;
+	
+	if (_ior == -1) ior = 1 + baseColor.x;
+	else ior = _ior;
+
+	if (_roughness == -1) roughness = saturate(baseColor.y - EPSILON) + EPSILON;
+	else roughness = _roughness;
+
+	if (_metallic == -1) metallic = baseColor.z;
+	else metallic = _metallic;
+
+
+	projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cubeMap, cubeMap, SamplesCount, baseColor, ior, roughness, metallic, nameColor);
+
 	return 0;
 }
 
-
-int ggx_distribution::projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor)
+int ggx_distribution::projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap, int SamplesCount, Vector3 baseColor, float ior, float roughness, float metallic, std::string nameColor)
 {
 	cv::Mat src_8uc3_img(480, 640, CV_32FC3);
 
@@ -176,9 +201,7 @@ int ggx_distribution::projRenderGGX_Distribution(RTCScene & scene, std::vector<S
 	//baseColor = Vector3(0.61f, 0.606f, 0.958f);
 	
 
-	float ior = 1 + baseColor.x;
-	float roughness = saturate(baseColor.y - EPSILON) + EPSILON;
-	float metallic = baseColor.z;
+	
 
 	/*ior = 1 + baseColor.x;
 	roughness = saturate(baseColor.y - alpha) + alpha;
@@ -240,7 +263,7 @@ int ggx_distribution::projRenderGGX_Distribution(RTCScene & scene, std::vector<S
 
 				Vector3 ks = Vector3(0, 0, 0);
 				Vector3 specular = GGX_Specular(specularCubeMap, normal, rayDir, roughness, F0, &ks, SamplesCount);
-				Vector3 kd = (Vector3(1, 1, 1) - ks) * (1 - metallic);
+				Vector3 kd = (Vector3(1, 1, 1) - ks) * (1-metallic);
 
 				Vector3 irradiance = Vector3(cubeMap.GetTexel(normal).data);
 

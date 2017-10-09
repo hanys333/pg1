@@ -61,9 +61,11 @@ public:
 	float GGX_PartialGeometryTerm(Vector3 v, Vector3 n, Vector3 h, float alpha);
 	Vector3 GGX_Specular(CubeMap cubeMapSpecular, Vector3 normal, Vector3 rayDir, float roughness, Vector3 F0, Vector3 * kS, int SamplesCount);
 	
-	int StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor);
+	//int StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor);
 
-	int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor);
+	int StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor, float _ior = -1.0f, float _roughness = -1.0f, float _metallic = -1.0f);
+
+	int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap, int SamplesCount, Vector3 baseColor, float ior, float roughness, float metallic, std::string nameColor);
 
 	//TESTS
 	int testSamplingOnSphere(RTCScene & scene, std::vector<Surface*>& surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap);
