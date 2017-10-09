@@ -1895,9 +1895,9 @@ void TestCountSamples()
 
 void TestRoughness(GGXColor col)
 {
-	distr.StartRender(cameraSPhere, cubeMap, 50, col, "ROUGHNESSTest", 0.1);
-	distr.StartRender(cameraSPhere, cubeMap, 50, col, "ROUGHNESSTest", 0.5);
-	distr.StartRender(cameraSPhere, cubeMap, 50, col, "ROUGHNESSTest", 1.0);
+	distr.StartRender(cameraSPhere, cubeMap, 50, col, "ROUGHNESSTest", -1, 0.1);
+	distr.StartRender(cameraSPhere, cubeMap, 50, col, "ROUGHNESSTest", -1, 0.5);
+	distr.StartRender(cameraSPhere, cubeMap, 50, col, "ROUGHNESSTest", -1, 1.0);
 }
 
 void TestMetallic(GGXColor col)
@@ -2006,11 +2006,11 @@ int main(int argc, char * argv[])
 
 	distr = ggx_distribution(scene, surfaces, 10, Vector3(0, 0, 0), std::string("a"));
 
-	TestCountSamples(); // test na pocet snimku 10, 40, 50, 100 ve vsech barvach
+	//TestCountSamples(); // test na pocet snimku 10, 40, 50, 100 ve vsech barvach
 
 	TestRoughness(GOLD); //test na meneni roughness 0.1 0.5 1.0
 
-	TestMetallic(GOLD); //test na meneni metallic 0.1 0.5 1.0
+	//TestMetallic(GOLD); //test na meneni metallic 0.1 0.5 1.0
 
 
 	//Camera camera = Camera(640, 480, Vector3(-20.f, 0.f, 0.f),

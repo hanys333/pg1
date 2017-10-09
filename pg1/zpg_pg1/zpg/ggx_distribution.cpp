@@ -31,8 +31,12 @@ Vector3 ggx_distribution::TransformToWS(Vector3 normal, Vector3 direction)
 }
 
 
+
 float ggx_distribution::GGX_PartialGeometryTerm(Vector3 v, Vector3 n, Vector3 h, float alpha)
 {
+#pragma region
+	/*/http://www.codinglabs.net/article_physically_based_rendering_cook_torrance.aspx
+ 
 	h.Normalize();
 	v.Normalize();
 	n.Normalize();
@@ -43,7 +47,18 @@ float ggx_distribution::GGX_PartialGeometryTerm(Vector3 v, Vector3 n, Vector3 h,
 
 	float VoH2 = VoH * VoH;
 	float tan2 = (1 - VoH2) / VoH2;
-	return (chi * 2) / (1 + sqrt(1 + alpha * alpha * tan2));
+	return (chi * 2) / (1 + sqrt(1 + alpha * alpha * tan2));//*/
+#pragma endregion
+
+	h.Normalize();
+	n.Normalize();
+
+	float NoH = n.DotProduct(h);
+	float alpha2 = alpha * alpha;
+	float NoH2 = NoH * NoH;
+	float den = NoH2 * alpha2 + (1 - NoH2);
+	return (chiGGX(NoH) * alpha2) / (M_PI * den * den);
+
 }
 
 
