@@ -102,4 +102,9 @@ char * RTrim( char * s );
 */
 char * Trim( char *s );
 
+
+enum GGXColor
+{
+	GOLD, SILVER, IRON, ALUMINIUM
+};
 #endif

@@ -63,7 +63,7 @@ public:
 	
 	//int StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor);
 
-	int StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor, float _ior = -1.0f, float _roughness = -1.0f, float _metallic = -1.0f);
+	int StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, GGXColor col, std::string info, float _ior = -1.0f, float _roughness = -1.0f, float _metallic = -1.0f);
 
 	int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap, int SamplesCount, Vector3 baseColor, float ior, float roughness, float metallic, std::string nameColor);
 
@@ -73,7 +73,46 @@ public:
 	
 	
 	ggx_distribution(RTCScene & scene, std::vector<Surface *> & surfaces, int SamplesCount, Vector3 baseColor, std::string nameColor);
+	ggx_distribution();
 	~ggx_distribution();
+
+	Vector3 GetColorValue(GGXColor col)
+	{
+		switch (col)
+		{
+		case GOLD:
+			return Vector3(1.000, 0.766, 0.336);
+		case SILVER:
+			return Vector3(0.972, 0.960, 0.915);
+		case IRON:
+			return Vector3(0.560, 0.570, 0.580);
+		case ALUMINIUM:
+			return Vector3(0.913, 0.921, 0.925);
+		default:
+			break;
+		}
+
+		return Vector3(0, 1, 1);
+	}
+
+	std::string GetColorString(GGXColor col)
+	{
+		switch (col)
+		{
+		case GOLD:
+			return "GOLD";
+		case SILVER:
+			return "SILVER";
+		case IRON:
+			return "IRON";
+		case ALUMINIUM:
+			return "ALUMINIUM";
+		default:
+			break;
+		}
+
+		return "UNKNOWN";
+	}
 };
 
 #endif

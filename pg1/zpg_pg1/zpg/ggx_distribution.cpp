@@ -160,8 +160,24 @@ Vector3 ggx_distribution::GGX_Specular(CubeMap cubeMapSpecular, Vector3 normal, 
 //	return 0;
 //}
 
-int ggx_distribution::StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor, float _ior, float _roughness, float _metallic)
+int ggx_distribution::StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, GGXColor col, std::string info, float _ior, float _roughness, float _metallic)
 {
+	Vector3 baseColor = GetColorValue(col);
+	std::string nameColor = GetColorString(col);
+
+	if (info != "")
+	{
+		nameColor = info + " (" + nameColor + ") ";
+	}
+	else
+	{
+		nameColor += " ";
+	}
+
+	
+
+
+
 	float ior, roughness, metallic;
 	
 	if (_ior == -1) ior = 1 + baseColor.x;
@@ -475,6 +491,19 @@ ggx_distribution::ggx_distribution(RTCScene & _scene, std::vector<Surface *> & _
 	scene = _scene;
 	surfaces = _surfaces;
 	
+	//projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cubeMap, cubeMap, SamplesCount, baseColor, nameColor);
+
+	//TEST - sampling on sphere
+	//testSamplingOnSphere(scene, surfaces, cameraSPhere, cv::Vec3f(-400.0f, -500, 370.0f), cubeMap);
+}
+
+ggx_distribution::ggx_distribution()
+{
+
+	/**/
+	//scene = _scene;
+	//surfaces = _surfaces;
+
 	//projRenderGGX_Distribution(scene, surfaces, cameraSPhere, cubeMap, cubeMap, SamplesCount, baseColor, nameColor);
 
 	//TEST - sampling on sphere
