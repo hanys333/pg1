@@ -67,6 +67,8 @@ public:
 
 	int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap, int SamplesCount, Vector3 baseColor, float ior, float roughness, float metallic, std::string nameColor);
 
+	int ggx_distribution::testGeometryTerm(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap, int SamplesCount, Vector3 baseColor, float ior, float roughness, float metallic, std::string nameColor);
+
 	//TESTS
 	int testSamplingOnSphere(RTCScene & scene, std::vector<Surface*>& surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap);
 	int GenerateTestingSamples(float roughness, cv::Vec3b color, char * name);
