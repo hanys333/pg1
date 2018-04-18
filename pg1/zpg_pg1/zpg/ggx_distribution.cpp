@@ -100,14 +100,14 @@ Vector3 ggx_distribution::GenerateGGXsampleVector(float roughness)//, Vector3 no
 
 }
 
-Vector3 ggx_distribution::GGX_Specular(CubeMap cubeMapSpecular, Vector3 normal, Vector3 rayDir, float roughness, Vector3 F0, Vector3 *kS, int SamplesCount)
+Vector3 ggx_distribution::GGX_Specular(CubeMap cubeMapSpecular, Vector3 normal, Vector3 lightVector, float roughness, Vector3 F0, Vector3 *kS, int SamplesCount)
 {
 	Vector3 radiance = Vector3(0, 0, 0);
-	float  NoV = saturate(normal.DotProduct(rayDir));
+	float  NoV = saturate(normal.DotProduct(lightVector));
 
 	// reflectionVector = reflect(-viewVector, normal);
  
-	Vector3 reflectionVector = reflect(normal, -rayDir);
+	Vector3 reflectionVector = reflect(normal, -lightVector);
 	reflectionVector.Normalize();
 
 	for (int i = 0; i < SamplesCount; i++)
@@ -120,16 +120,16 @@ Vector3 ggx_distribution::GGX_Specular(CubeMap cubeMapSpecular, Vector3 normal, 
 		sampleVector = TransformToWS(reflectionVector, sampleVector);
 
 		// Calculate the half vector
-		Vector3 halfVector = sampleVector + rayDir;
+		Vector3 halfVector = sampleVector + lightVector;
 		halfVector.Normalize();
 		float cosT = saturate(sampleVector.DotProduct(normal));
 		float sinT = sqrt(1 - cosT * cosT);
 
 
 		// Calculate fresnel
-		Vector3 fresnel = Fresnel_Schlick(saturate(halfVector.DotProduct(rayDir)), F0);
+		Vector3 fresnel = Fresnel_Schlick(saturate(halfVector.DotProduct(lightVector)), F0);
 		// Geometry term
-		float geometry = GGX_PartialGeometryTerm(rayDir, normal, halfVector, roughness) * GGX_PartialGeometryTerm(sampleVector, normal, halfVector, roughness);
+		float geometry = GGX_PartialGeometryTerm(lightVector, normal, halfVector, roughness) * GGX_PartialGeometryTerm(sampleVector, normal, halfVector, roughness);
 		// Calculate the Cook-Torrance denominator
 		float denominator = saturate(4 * (NoV * saturate(halfVector.DotProduct(normal)) + 0.05));
 		*kS += fresnel;
@@ -232,12 +232,6 @@ int ggx_distribution::projRenderGGX_Distribution(RTCScene & scene, std::vector<S
 
 				normal = normal.DotProduct(rtc_ray.dir) < 0 ? normal : -normal;
 				normal.Normalize();
-
-				Vector3 h = (lightVector + normal);
-				h.Normalize();
-
-				
-				
 
 				float F0_f = saturate((1.0 - ior) / (1.0 + ior));
 				Vector3 F0 = Vector3(F0_f, F0_f, F0_f);
