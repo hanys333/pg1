@@ -53,29 +53,26 @@ public:
 	Vector3 TransformToWS(Vector3 normal, Vector3 direction);
 	float Ph(float theta, float phi, float alpha);
 	float GetTheta(float alpha);
-	Vector3 GenerateGGXsampleVector(int i, float roughness);
+	Vector3 GenerateGGXsampleVector(float roughness);
 
 
 	Vector3 Fresnel_Schlick(float cosT, Vector3 F0);
 	
 	float GGX_PartialGeometryTerm(Vector3 v, Vector3 n, Vector3 h, float alpha);
 	Vector3 GGX_Specular(CubeMap cubeMapSpecular, Vector3 normal, Vector3 rayDir, float roughness, Vector3 F0, Vector3 * kS, int SamplesCount);
-	
-	//int StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, Vector3 baseColor, std::string nameColor);
 
-	int StartRender(Camera cameraSPhere, CubeMap cubeMap, int SamplesCount, GGXColor col, std::string info, float _ior = -1.0f, float _roughness = -1.0f, float _metallic = -1.0f);
+	int StartRender(Camera cameraSPhere, CubeMap cubeMap, Vector3 lightDir, int SamplesCount, GGXColor col, std::string info, float _ior = -1.0f, float _roughness = -1.0f, float _metallic = -1.0f);
 
-	int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap, int SamplesCount, Vector3 baseColor, float ior, float roughness, float metallic, std::string nameColor);
+	int projRenderGGX_Distribution(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap, Vector3 lightVector, int SamplesCount, Vector3 baseColor, float ior, float roughness, float metallic, std::string nameColor);
 
-	int ggx_distribution::testGeometryTerm(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap, int SamplesCount, Vector3 baseColor, float ior, float roughness, float metallic, std::string nameColor);
+	int ggx_distribution::testGeometryTerm(RTCScene & scene, std::vector<Surface *> & surfaces, Camera & camera, CubeMap cubeMap, CubeMap specularCubeMap, Vector3 lightDir, int SamplesCount, Vector3 baseColor, float ior, float roughness, float metallic, std::string nameColor);
 
 	//TESTS
 	int testSamplingOnSphere(RTCScene & scene, std::vector<Surface*>& surfaces, Camera & camera, cv::Vec3f lightPosition, CubeMap cubeMap);
 	int GenerateTestingSamples(float roughness, cv::Vec3b color, char * name);
 	
-	
-	ggx_distribution(RTCScene & scene, std::vector<Surface *> & surfaces, int SamplesCount, Vector3 baseColor, std::string nameColor);
 	ggx_distribution();
+	ggx_distribution(RTCScene & scene, std::vector<Surface *> & surfaces);
 	~ggx_distribution();
 
 	Vector3 GetColorValue(GGXColor col)
@@ -90,6 +87,8 @@ public:
 			return Vector3(0.560, 0.570, 0.580);
 		case ALUMINIUM:
 			return Vector3(0.913, 0.921, 0.925);
+		case CHROMIUM:
+			return Vector3(0.550, 0.556, 0.554);
 		default:
 			break;
 		}
@@ -109,6 +108,8 @@ public:
 			return "IRON";
 		case ALUMINIUM:
 			return "ALUMINIUM";
+		case CHROMIUM:
+			return "CHROMIUM";
 		default:
 			break;
 		}

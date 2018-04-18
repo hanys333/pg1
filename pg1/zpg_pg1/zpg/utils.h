@@ -105,6 +105,6 @@ char * Trim( char *s );
 
 enum GGXColor
 {
-	GOLD, SILVER, IRON, ALUMINIUM
+	GOLD, SILVER, IRON, ALUMINIUM, CHROMIUM
 };
 #endif

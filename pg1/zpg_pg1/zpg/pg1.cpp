@@ -97,8 +97,9 @@ void filter_occlusion(void * user_ptr, Ray & ray)
 
 CubeMap cubeMap = CubeMap::CubeMap("../../data/yokohama");
 Camera camera = Camera(Camera(640, 480, Vector3(2.0f, 2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f)));
+Vector3 lightDirection = Vector3(0, -2, -2);
 
-ggx_distribution distr = ggx_distribution();
+ggx_distribution distr;/// = ggx_distribution();
 
 std::string strTest = "26";
 
@@ -108,8 +109,8 @@ void TestCountSamples()
 
 	std::string str = strTest;//"18";
 	float roughness = -1.0f;
-	distr.StartRender(camera, cubeMap, countSamples, GOLD, str, -1, roughness);
-	distr.StartRender(camera, cubeMap, countSamples, IRON, str, -1, roughness);
+	distr.StartRender(camera, cubeMap, lightDirection, countSamples, GOLD, str, -1, roughness);
+	distr.StartRender(camera, cubeMap, lightDirection, countSamples, IRON, str, -1, roughness);
 
 }
 
@@ -118,20 +119,20 @@ void TestRoughness(GGXColor col)
 	
 	for (float roughness = 0.1f; roughness <= 1.1f; roughness += 0.2)
 	{
-		distr.StartRender(camera, cubeMap, 30, col, strTest + " RoughnesssTest", -1, roughness);
+		distr.StartRender(camera, cubeMap, lightDirection, 30, col, strTest + " RoughnesssTest", -1, roughness);
 	}
 }
 
 void TestMetallic(GGXColor col)
 {
-	distr.StartRender(camera, cubeMap, 50, col, "METALLICTest", -1, -1, 0.1);
-	distr.StartRender(camera, cubeMap, 50, col, "METALLICTest", -1, -1, 0.5);
-	distr.StartRender(camera, cubeMap, 50, col, "METALLICTest", -1, -1, 1.0);
+	distr.StartRender(camera, cubeMap, lightDirection, 50, col, "METALLICTest", -1, -1, 0.1);
+	distr.StartRender(camera, cubeMap, lightDirection, 50, col, "METALLICTest", -1, -1, 0.5);
+	distr.StartRender(camera, cubeMap, lightDirection, 50, col, "METALLICTest", -1, -1, 1.0);
 }
 
 void JustTest(GGXColor col, int countSamples)
 {
-	distr.StartRender(camera, cubeMap, countSamples, col, "JustTest");
+	distr.StartRender(camera, cubeMap, lightDirection, countSamples, col, "JustTest");
 }
 
 int main(int argc, char * argv[])
@@ -148,10 +149,9 @@ int main(int argc, char * argv[])
 	std::vector<Material *> materials;
 
 	// načtení geometrie
-	if (LoadOBJ("../../data/6887_allied_avenger.obj", Vector3(0.5f, 0.5f, 0.5f), surfaces, materials) < 0)
-	{
-		return -1;
-	}
+	//if (LoadOBJ("../../data/6887_allied_avenger.obj", Vector3(0.5f, 0.5f, 0.5f), surfaces, materials) < 0) { return -1; } camera = Camera(640, 480, Vector3(-200.0f, -200.0f, 100.0f), Vector3(40, -40, 5), DEG2RAD(42.185f));
+	if (LoadOBJ("../../data/geosphere.obj", Vector3(0.5f, 0.5f, 0.5f), surfaces, materials) < 0) { return -1; } camera = Camera(640, 480, Vector3(2.0f, 2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f));
+
 
 	// vytvoření scény v rámci Embree
 	RTCScene scene = rtcDeviceNewScene(device, RTC_SCENE_STATIC | RTC_SCENE_HIGH_QUALITY, RTC_INTERSECT1/* | RTC_INTERPOLATE*/);
@@ -211,19 +211,11 @@ int main(int argc, char * argv[])
 
 	rtcCommit(scene);
 
-
-	//baseColor = Vector3(0.560, 0.570, 0.580); str = "IRON";// iron
-	//baseColor = Vector3(0.972, 0.960, 0.915); str = "SILVER"; // silver
-	//baseColor = Vector3(0.913, 0.921, 0.925); str = "ALUMINIUM"; // aluminium
-	//baseColor = Vector3(1.000, 0.766, 0.336); str = "GOLD";// gold
-	//baseColor = Vector3(0.550, 0.556, 0.554); str = "CHROMIUM"; // chromium
-
 	cubeMap = CubeMap::CubeMap("../../data/yokohama");
 
-	camera = Camera(640, 480, Vector3(-200.0f, -200.0f, 100.0f), Vector3(40, -40, 5), DEG2RAD(42.185f)); // camera on allien
-	//camera = Camera(640, 480, Vector3(2.0f, 2.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f), DEG2RAD(42.185f)); // camera on sphere
+	
 
-	distr = ggx_distribution(scene, surfaces, 10, Vector3(0, 0, 0), std::string("a"));
+	distr = ggx_distribution(scene, surfaces);
 
 	/*TESTING BRDF********/
 
