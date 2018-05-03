@@ -132,11 +132,66 @@ void TestMetallic(GGXColor col)
 
 void JustTest(GGXColor col, int countSamples)
 {
-	distr.StartRender(camera, cubeMap, lightDirection, countSamples, col, "JustTest");
+	distr.StartRender(camera, cubeMap, lightDirection, countSamples, col, "ReferenceImg", 2, 0.5, 0.33);
+}
+
+int GenerateNoiseTexture(int width, int height, float roughness, std::string nameResult)
+{
+	cv::Mat src_8uc3_img(width, width, CV_32FC3);
+
+	
+
+	cv::namedWindow(nameResult, 1);
+
+	for (int x = 0; x < width; x++)
+	{
+		for (int y = 0; y < height; y++)
+		{
+
+			Vector3 sampleVec = distr.GenerateGGXsampleVector(roughness);
+
+			sampleVec.Normalize();
+
+
+			
+			src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(sampleVec.z, sampleVec.y, sampleVec.x);
+
+
+
+		}
+
+		//cv::imshow(nameResult, src_8uc3_img); // display image
+
+		//cv::moveWindow(nameResult, 10, 50);
+
+
+
+		//cvWaitKey(1);
+	}
+
+	cv::imshow(nameResult, src_8uc3_img); // display image
+	cv::moveWindow(nameResult, 10, 50);
+	cvWaitKey(1);
+
+	cv::Mat finalImage;
+
+	cv::convertScaleAbs(src_8uc3_img, finalImage, 255.0f);
+
+	std::string path = "D:\\NoiseTextures\\";
+	std::string resultPath = path + nameResult + ".png";
+	cv::imwrite(resultPath, finalImage);
+	std::cout << resultPath << std::endl;
+	//cvSaveImage("D:\\" + str + ".jpg", src_8uc3_img);
+	//cvWaitKey(0);
+	//std::string str = "GGX_Distribution metallic(" + std::to_string(metallic) + ")  roughness(" + std::to_string(roughness) + ")";
+
+
+	return 0;
 }
 
 int main(int argc, char * argv[])
 {
+
 	printf("PG1, (c)2011-2016 Tomas Fabian\n\n");
 
 	_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON); // Flush to Zero, Denormals are Zero mode of the MXCSR
@@ -221,10 +276,16 @@ int main(int argc, char * argv[])
 
 	//TestCountSamples(); // test na pocet snimku 10, 40, 50, 100 ve vsech barvach
 
-	JustTest(GOLD, 50);
-	JustTest(IRON, 50);
+	JustTest(GOLD, 200);
+	//JustTest(IRON, 50);
 
 
+	/*GenerateNoiseTexture(2048, 2048, 0.01, "noiseTexture_roughness_0_01");
+	GenerateNoiseTexture(2048, 2048, 0.1, "noiseTexture_roughness_0_1");
+	GenerateNoiseTexture(2048, 2048, 0.4, "noiseTexture_roughness_0_4");
+	GenerateNoiseTexture(2048, 2048, 0.7, "noiseTexture_roughness_0_7");
+	GenerateNoiseTexture(2048, 2048, 0.9, "noiseTexture_roughness_0_9");
+	GenerateNoiseTexture(2048, 2048, 0.99, "noiseTexture_roughness_0_99");*/
 	//TestRoughness(GOLD); //test na meneni roughness 0.1 0.5 1.0
 	//TestMetallic(GOLD); //test na meneni metallic 0.1 0.5 1.0
 
