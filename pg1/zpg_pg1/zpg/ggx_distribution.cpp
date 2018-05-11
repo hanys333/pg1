@@ -88,7 +88,13 @@ Vector3 ggx_distribution::GenerateGGXsampleVector(float roughness)//, Vector3 no
 
 		if (ph > 1 - roughness)
 		{
-			return Vector3::GetFromSpherical(theta, phi);
+			Vector3 rightV = Vector3::GetFromSpherical(theta, phi);
+
+			//rightV.Print();
+			
+			
+
+			return rightV;
 		}
 		else
 		{
@@ -134,7 +140,7 @@ Vector3 ggx_distribution::GGX_Specular(CubeMap cubeMapSpecular, Vector3 normal, 
 		float denominator = saturate(4 * (NoV * saturate(halfVector.DotProduct(normal)) + 0.05));
 		*kS += fresnel;
 		// Accumulate the radiance
-		radiance += Vector3(cubeMapSpecular.GetTexel(sampleVector).data) * geometry * fresnel * sinT / denominator;
+		radiance += Vector3(geometry, geometry, geometry);//Vector3(cubeMapSpecular.GetTexel(sampleVector).data) * geometry * fresnel * sinT / denominator;
 	}
 
 	// Scale back for the samples count
@@ -249,7 +255,7 @@ int ggx_distribution::projRenderGGX_Distribution(RTCScene & scene, std::vector<S
 
 				Vector3 diffuse = baseColor * irradiance;
 
-				ret = kd * diffuse + specular;
+				ret = specular;//kd * diffuse + specular;
 
 				src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(ret.z, ret.y, ret.x);
 
