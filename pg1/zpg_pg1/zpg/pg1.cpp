@@ -154,7 +154,7 @@ int GenerateNoiseTexture(int width, int height, float roughness, std::string nam
 
 
 			
-			src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(sampleVec.z, (sampleVec.y + 1) / 2, (sampleVec.x + 1) / 2);
+			src_8uc3_img.at<cv::Vec3f>(y, x) = cv::Vec3f(sampleVec.z, (sampleVec.y + 1.0f) / 2.0f, (sampleVec.x + 1.0f) / 2.0f);
 
 
 
@@ -177,7 +177,7 @@ int GenerateNoiseTexture(int width, int height, float roughness, std::string nam
 
 	cv::convertScaleAbs(src_8uc3_img, finalImage, 255.0f);
 
-	std::string path = "D:\\NoiseTextures\\";
+	std::string path = "E:\\NoiseTextures\\";
 	std::string resultPath = path + nameResult + ".png";
 	cv::imwrite(resultPath, finalImage);
 	std::cout << resultPath << std::endl;
@@ -276,9 +276,10 @@ int main(int argc, char * argv[])
 
 	//TestCountSamples(); // test na pocet snimku 10, 40, 50, 100 ve vsech barvach
 
-	JustTest(GOLD, 50);
+	//JustTest(GOLD, 50);
 	//JustTest(IRON, 50);
 
+	GenerateNoiseTexture(1000, 1000, 0.99, "noiseTexture_roughness_0_99");
 
 	/*GenerateNoiseTexture(2048, 2048, 0.01, "noiseTexture_roughness_0_01");
 	GenerateNoiseTexture(2048, 2048, 0.1, "noiseTexture_roughness_0_1");

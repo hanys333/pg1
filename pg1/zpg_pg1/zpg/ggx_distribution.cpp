@@ -90,7 +90,9 @@ Vector3 ggx_distribution::GenerateGGXsampleVector(float roughness)//, Vector3 no
 		{
 			Vector3 rightV = Vector3::GetFromSpherical(theta, phi);
 
-			//rightV.Print();
+			rightV.Normalize();
+
+			rightV.Print();
 			
 			
 
